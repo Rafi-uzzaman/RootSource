@@ -67,6 +67,26 @@ pytest -q
 ## VS Code tasks
 Press `Ctrl+Shift+B` to see run tasks, or open `.vscode/tasks.json`.
 
+## Deploy
+
+### Frontend on GitHub Pages
+This repo includes a Pages workflow (`.github/workflows/pages.yml`). To publish:
+1. Push to `main`.
+2. In your GitHub repo settings → Pages, set Source to "GitHub Actions". The `pages.yml` workflow will build and publish the static site.
+3. Edit `assets/js/config.js` and set `window.ROOTSOURCE_API_BASE` to your backend URL, for example:
+	`window.ROOTSOURCE_API_BASE = 'https://your-backend.example.com';`
+
+### Backend hosting
+Deploy the FastAPI backend to any host (Render, Railway, Fly.io, Cloud Run, EC2, VPS, etc.). Use the production command:
+`gunicorn -c gunicorn.conf.py backend:app`
+
+Environment variables to set:
+- `GROQ_API_KEY` (optional; enables live LLM responses)
+- `ALLOW_ORIGINS` to include your Pages origin, e.g. `https://<user>.github.io`
+- `PORT` (many platforms set this automatically; our `gunicorn.conf.py` reads it)
+
+Once deployed, ensure the backend URL is configured in `assets/js/config.js` as above.
+
 ## Notes
 - If `GROQ_API_KEY` is not set, the backend returns a clear demo response and the app remains functional for UI testing.
-- Frontend uses `fetch` to `http://127.0.0.1:8000/chat`. Adjust if deploying behind a different host.
+- When hosting frontend separately (e.g., GitHub Pages), make sure `ALLOW_ORIGINS` includes the Pages domain.

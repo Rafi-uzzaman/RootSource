@@ -1,8 +1,10 @@
-bind = "0.0.0.0:8000"
-workers = 2
+import os
+
+bind = f"0.0.0.0:{os.getenv('PORT', '8000')}"
+workers = int(os.getenv("WEB_CONCURRENCY", "2"))
 worker_class = "uvicorn.workers.UvicornWorker"
-threads = 2
-keepalive = 30
+threads = int(os.getenv("WEB_THREADS", "2"))
+keepalive = int(os.getenv("GUNICORN_KEEPALIVE", "30"))
 accesslog = "-"
 errorlog = "-"
-loglevel = "info"
+loglevel = os.getenv("LOG_LEVEL", "info")

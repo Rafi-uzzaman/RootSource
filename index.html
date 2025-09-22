@@ -112,6 +112,8 @@
 
 
   <script src="assets/js/jquery.js"></script>
+    <!-- Optional runtime config: define window.ROOTSOURCE_API_BASE for GitHub Pages -->
+    <script src="assets/js/config.js"></script>
   <script src="assets/js/script.js"></script>
 
 
@@ -249,7 +251,8 @@ $(document).ready(function () {
 
 
         try {
-            const response = await fetch("/chat", {
+            const API_BASE = (window.ROOTSOURCE_API_BASE || '').replace(/\/$/, '');
+            const response = await fetch(`${API_BASE}/chat`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({ message: promptText })

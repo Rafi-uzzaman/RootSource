@@ -17,8 +17,9 @@ from dotenv import load_dotenv, find_dotenv
 from settings import ALLOW_ORIGINS, HOST, PORT
 from starlette.responses import JSONResponse
 
-# Load environment variables
-load_dotenv(find_dotenv())
+# Load environment variables unless explicitly disabled (e.g., in tests)
+if not os.getenv("DONT_LOAD_DOTENV") and not os.getenv("PYTEST_CURRENT_TEST"):
+    load_dotenv(find_dotenv())
 
 # Initialize FastAPI
 app = FastAPI(title="RootSource AI", version="1.0.0")
