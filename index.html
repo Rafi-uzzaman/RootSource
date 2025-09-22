@@ -16,7 +16,7 @@
             <h1>AI</h1>
         </div>
         <div class="tagline">Ask your farming-related questions in any language, and get accurate answers!</div>
-        <div class="developer-info">Developed by: Team "BlueBot"</div>
+        <div class="developer-info">Developed by: Team "BlueDot"</div>
         <div class="chat-area">
 
 
@@ -249,7 +249,7 @@ $(document).ready(function () {
 
 
         try {
-            const response = await fetch("http://127.0.0.1:8000/chat", {
+            const response = await fetch("/chat", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({ message: promptText })

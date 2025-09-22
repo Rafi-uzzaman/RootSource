@@ -4,34 +4,33 @@ import time
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from langchain.memory import ConversationBufferMemory
-from langchain.agents import initialize_agent, AgentType
 from langchain_openai import ChatOpenAI
-from langchain_community.tools import WikipediaQueryRun, ArxivQueryRun, DuckDuckGoSearchRun
-from langchain_community.utilities import WikipediaAPIWrapper, ArxivAPIWrapper, DuckDuckGoSearchAPIWrapper
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from langdetect import detect
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv, find_dotenv
+from settings import ALLOW_ORIGINS, HOST, PORT
 from starlette.responses import JSONResponse
 
 # Load environment variables
 load_dotenv(find_dotenv())
 
 # Initialize FastAPI
-app = FastAPI()
+app = FastAPI(title="RootSource AI", version="1.0.0")
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
-# If using templates
-templates = Jinja2Templates(directory="templates")
-
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+async def home():
+    """Serve the SPA index.html from the repository root."""
+    file_path = os.path.join(os.path.dirname(__file__), "index.html")
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return HTMLResponse("<h1>RootSource AI</h1><p>index.html not found.</p>", status_code=404)
 
 
 
@@ -39,7 +38,7 @@ async def home(request: Request):
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all origins for development
+    allow_origins=ALLOW_ORIGINS,  # configurable via env
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -120,13 +119,25 @@ def format_response(text):
 
 def get_direct_response(query):
     """Get direct response from LLM without agent complexity"""
-    llm = get_llm()
     try:
+        llm = get_llm()
         response = llm.invoke(query)
         return response.content if hasattr(response, 'content') else str(response)
     except Exception as e:
-        print(f"Direct LLM error: {e}")
-        return None
+        # Safe fallback for environments without API key or when provider is unavailable
+        print(f"Direct LLM error (falling back to demo response): {e}")
+        demo = (
+            "**RootSource AI (Demo Mode)**\n\n"
+            "• The intelligent LLM backend isn't configured.\n"
+            "• Set the environment variable **GROQ_API_KEY** to enable live answers.\n\n"
+            "**You asked:**\n"
+            f"• {query[:500]}\n\n"
+            "**What to do next:**\n"
+            "1. Create a .env file with GROQ_API_KEY=your_key\n"
+            "2. Restart the server\n"
+            "3. Ask again for a live answer"
+        )
+        return demo
 
 def get_search_enhanced_response(query):
     """Only use search when absolutely necessary"""
@@ -316,6 +327,10 @@ async def favicon():
         return FileResponse(file_path)
     return JSONResponse(status_code=404, content={"error": "favicon.ico not found"})
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "app": "RootSource AI"}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host=HOST, port=PORT)

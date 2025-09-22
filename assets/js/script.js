@@ -1,4 +1,14 @@
 var isVoice = 0;
+const DEFAULT_VOICE_NAME = 'Flo-en-US';
+const PREFERRED_VOICE_ALIASES = [
+    'Flo-en-US',
+    'Flo (en-US)',
+    'Flo en-US',
+    'Flo US',
+    'Flo'
+];
+const VOICE_STORAGE_KEY = 'preferredVoiceName';
+const LANG_STORAGE_KEY = 'preferredLangCode';
 
 function stopSpeech() {
     const speechEngine = window.speechSynthesis;
@@ -7,31 +17,27 @@ function stopSpeech() {
     }
 }
 $(document).ready(function() {
-
+    // Mic UI handlers
     $(document).click(function() {
         $('#microphone').removeClass('visible');
-    })
+    });
 
     $('#voice_search').click(function(event) {
         stopSpeech();
         $('#microphone').addClass('visible');
         event.stopPropagation();
+    });
 
-    })
-
-    $(".recoder").click(function(event) {
+    $('.recoder').click(function(event) {
         event.stopPropagation();
+    });
 
-    })
     $('#microphone .close').click(function() {
         $('#microphone').removeClass('visible');
-    })
-
+    });
 });
 
-
-
-
+// Populate voice/language selector with bn-BD priority and one voice per language
 $(document).ready(function() {
     var synth = window.speechSynthesis;
     var $langSelect = $('#lang');
@@ -40,29 +46,82 @@ $(document).ready(function() {
         var voices = synth.getVoices();
         $langSelect.empty();
 
-        var addedLangs = new Set();
-        var defaultSet = false;
+        // Build a map: language code -> best voice for that language
+        function scoreVoice(v) {
+            const name = (v.name || '').toLowerCase();
+            let score = 0;
+            if (name.includes('google')) score += 5;
+            if (name.includes('microsoft')) score += 4;
+            if (name.includes('natural') || name.includes('enhanced')) score += 2;
+            if (name.includes('flo')) score += 1; // small boost for flo names
+            return score;
+        }
 
-        $.each(voices, function(index, voice) {
-            if (!addedLangs.has(voice.lang)) {
-                var $option = $('<option>', {
-                    value: voice.lang,
-                    text: voice.name + ' - ' + voice.lang
-                });
-
-                if (voice.name.includes()) {
-                    $option.prop('selected', true);
-                    defaultSet = true;
-                }
-
-                $langSelect.append($option);
-                addedLangs.add(voice.lang);
+        const byLang = {};
+        voices.forEach(v => {
+            const lang = v.lang || '';
+            if (!lang) return;
+            if (!byLang[lang] || scoreVoice(v) > scoreVoice(byLang[lang])) {
+                byLang[lang] = v;
             }
         });
 
-        if (!defaultSet && $langSelect.children().length > 0) {
-            $langSelect.children().first().prop('selected', true);
+        // Ensure Bengali (Bangladesh) is included: map best bn* voice to bn-BD if bn-BD not present
+        const bnVoices = voices.filter(v => (v.lang || '').toLowerCase().startsWith('bn'));
+        if (!byLang['bn-BD'] && bnVoices.length) {
+            const bestBn = bnVoices.reduce((a, b) => (scoreVoice(a) >= scoreVoice(b) ? a : b));
+            byLang['bn-BD'] = bestBn;
         }
+
+        // Sort languages: bn-BD first, then en-US, then others alphabetically
+        const langs = Object.keys(byLang).sort((a,b) => {
+            if (a === 'bn-BD') return -1;
+            if (b === 'bn-BD') return 1;
+            if (a === 'en-US') return -1;
+            if (b === 'en-US') return 1;
+            return a.localeCompare(b);
+        });
+
+        // If still no bn-BD in list, add a placeholder entry
+        if (!langs.includes('bn-BD')) {
+            langs.unshift('bn-BD');
+        }
+
+        // Populate options: one per language; value = lang, data-voice = voice name
+        langs.forEach(lang => {
+            const voice = byLang[lang];
+            const label = voice ? `${lang} — ${voice.name}` : `${lang} — (no TTS voice)`;
+            const $option = $('<option>', { value: lang, text: label });
+            $option.attr('data-lang', lang);
+            $option.attr('data-voice', voice ? voice.name : '');
+            $langSelect.append($option);
+        });
+
+        // Restore preference or choose defaults with bn-BD priority
+        const storedLang = localStorage.getItem(LANG_STORAGE_KEY) || '';
+        const storedVoiceName = localStorage.getItem(VOICE_STORAGE_KEY) || '';
+
+        let selected = false;
+        function selectByLang(lang) {
+            const opt = $langSelect.children().filter(function(){ return ($(this).val()||'') === lang; }).first();
+            if (opt.length) { opt.prop('selected', true); return true; }
+            return false;
+        }
+
+        // 1) Stored lang if present
+        if (storedLang && selectByLang(storedLang)) selected = true;
+        // 2) bn-BD
+        if (!selected && selectByLang('bn-BD')) selected = true;
+        // 3) en-US
+        if (!selected && selectByLang('en-US')) selected = true;
+        // 4) First available
+        if (!selected && $langSelect.children().length > 0) $langSelect.children().first().prop('selected', true);
+
+        // Persist the decided selection
+        const selLang = ($langSelect.find('option:selected').attr('data-lang') || 'en-US');
+        const selVoice = ($langSelect.find('option:selected').attr('data-voice') || '');
+        if (selLang) localStorage.setItem(LANG_STORAGE_KEY, selLang);
+        if (selVoice) localStorage.setItem(VOICE_STORAGE_KEY, selVoice);
     }
 
     populateLanguages();
@@ -70,6 +129,14 @@ $(document).ready(function() {
     if (typeof synth.onvoiceschanged !== 'undefined') {
         synth.onvoiceschanged = populateLanguages;
     }
+
+    // Save user selection changes
+    $langSelect.on('change', function() {
+        var lang = ($(this).find('option:selected').attr('data-lang') || '');
+        var voice = ($(this).find('option:selected').attr('data-voice') || '');
+        if (voice) localStorage.setItem(VOICE_STORAGE_KEY, voice);
+        if (lang) localStorage.setItem(LANG_STORAGE_KEY, lang);
+    });
 });
 
 $(document).ready(function() {
@@ -124,7 +191,11 @@ $(document).ready(function() {
             $('#speakBtn').addClass('active');
             new Audio('assets/audio/start.mp3').play();
             setTimeout(function() {
-                let language = $('#microphone select').val().trim();
+                // Recognition language = selected language (prioritize stored), default bn-BD then en-US
+                let language = ($('#microphone select option:selected').data('lang') || '').toString();
+                if (!language) language = (localStorage.getItem(LANG_STORAGE_KEY) || '');
+                if (!language) language = 'bn-BD';
+                if (!language) language = 'en-US';
                 speak(language);
                 if (speech && speech.recognition) {
                     speech.recognition.start();
@@ -184,10 +255,16 @@ $(document).ready(function() {
             return;
         }
 
-        let selectedLang = $('#lang').val() || 'en-US';
+        const selectedOption = $('#lang option:selected');
+        const selectedLang = selectedOption.data('lang') || 'bn-BD';
+        const selectedVoiceName = selectedOption.data('voice') || localStorage.getItem(VOICE_STORAGE_KEY) || '';
 
-        let voiceToUse = voices.find(v => v.lang.startsWith(selectedLang)) ||
-            voices.find(v => v.lang.startsWith('en-US'));
+        // Prefer the exact selected voice by name, then fallback by language
+        let voiceToUse = voices.find(v => v.name === selectedVoiceName) ||
+            voices.find(v => (v.lang || '') === selectedLang) ||
+            voices.find(v => (v.lang || '').startsWith(selectedLang.split('-')[0])) ||
+            voices.find(v => (v.lang || '').startsWith('bn-BD')) ||
+            voices.find(v => (v.lang || '').startsWith('en-US'));
 
         if (selectedLang.startsWith('en')) say = 'Showing prompt: ' + say;
         else if (selectedLang.startsWith('bn')) say = 'প্রম্পট দেখানো হচ্ছে: ' + say;
@@ -198,6 +275,7 @@ $(document).ready(function() {
 
         // Speak
         let utterance = new SpeechSynthesisUtterance(say);
+        utterance.lang = selectedLang || 'bn-BD';
         if (voiceToUse) utterance.voice = voiceToUse;
         synth.speak(utterance);
     }
