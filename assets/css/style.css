@@ -1,0 +1,794 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+:root {
+    --bg-color: #2c3e50;
+    /* --container-bg: rgba(44, 62, 80, 0.8);
+    --input-bg: #34495e;
+    --chat-bubble-bg: #34495e; */
+    --primary-color: #2ecc71;
+    --text-color: #ecf0f1;
+    --border-color: #7f8c8d;
+    --chat-bubble-text: #ecf0f1;
+    --icon-color: #ecf0f1;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --font-family: 'Poppins', sans-serif;
+}
+
+/* Reset & global settings */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-family);
+    color: var(--text-color);
+    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url("https://assets.science.nasa.gov/dynamicimage/assets/science/esd/multimedia/images-of-change/FestiveFields_NC_20141019_after_2048px-95.jpg") no-repeat center center fixed;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    position: relative;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    z-index: 1;
+}
+
+.container {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    padding-top: 8px;
+    max-width: 1200px; 
+    background-color: var(--container-bg);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px var(--shadow-color);
+    padding: 40px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    max-height: 96vh;
+    overflow-y: auto;
+}
+
+.logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.logo img {
+    height: 120px;
+}
+
+.logo h1 {
+    font-size: clamp(1.5rem, 2.5vw, 3rem); /* scales dynamically */
+    color: var(--primary-color);
+    text-shadow: 2px 2px 4px var(--shadow-color);
+    font-weight: 600;
+}
+
+.tagline {
+    font-size: clamp(0.9rem, 1.2vw, 1.5rem);
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.developer-info {
+    font-size: clamp(0.7rem, 0.9vw, 1rem);
+    color: var(--border-color);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.chat-area {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding-right: 5px;
+    margin-bottom: 20px;
+}
+
+.input-box {
+    position: relative;
+    width: 100%;
+    border-radius: 25px;
+    display: flex;
+    gap: 10px;
+    
+}
+
+
+.chat-area .input-box .message{
+    width:100%;
+    padding: 15px 20px;
+    word-wrap: break-word;
+    border-radius: 12px 12px 0 12px;
+    background-color: var(--input-bg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    word-wrap: break-word;
+    text-wrap: wrap;
+    display: flex;
+    justify-content: end;
+    
+}
+.chat-area .input-box .message p{
+    margin:0;
+    padding:0;
+    text-align: justify;
+}
+
+.input-box svg {
+    color: var(--icon-color);
+    height: 20px;
+    width: 20px;
+}
+
+.input-box input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-color);
+    flex-grow: 1;
+    font-size: 1em;
+    padding:0;
+    margin:0;
+}
+
+.input-box input::placeholder {
+    color: var(--border-color);
+}
+
+.chat-bubble {
+    background-color: var(--chat-bubble-bg);
+    padding: 15px 20px;
+    border-radius: 20px 20px 20px 0;
+    max-width: 100%;
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    word-wrap: break-word;
+}
+
+/* Modern AI Assistant Formatting Styles */
+.ai-heading {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 16px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary-color);
+    display: block;
+}
+
+.ai-text {
+    margin: 12px 0;
+    line-height: 1.7;
+    color: var(--chat-bubble-text);
+    font-size: 0.95em;
+}
+
+.ai-bold {
+    color: var(--primary-color);
+    font-weight: 600;
+    background: rgba(46, 204, 113, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.ai-italic {
+    font-style: italic;
+    color: #bdc3c7;
+}
+
+.ai-list {
+    margin: 16px 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.ai-list li {
+    margin: 10px 0;
+    padding-left: 24px;
+    line-height: 1.6;
+    position: relative;
+    color: var(--chat-bubble-text);
+}
+
+.ai-list li::before {
+    content: "●";
+    color: var(--primary-color);
+    font-size: 1.1em;
+    position: absolute;
+    left: 8px;
+    top: 0;
+}
+
+.ai-numbered-list {
+    margin: 16px 0;
+    padding-left: 24px;
+    counter-reset: ai-counter;
+}
+
+.ai-numbered-list li {
+    margin: 10px 0;
+    line-height: 1.6;
+    color: var(--chat-bubble-text);
+    counter-increment: ai-counter;
+    position: relative;
+}
+
+.ai-numbered-list li::before {
+    content: counter(ai-counter) ".";
+    color: var(--primary-color);
+    font-weight: 600;
+    position: absolute;
+    left: -24px;
+    top: 0;
+}
+
+/* Enhanced chat bubble styling */
+.chat-bubble {
+    background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+.formatted-content {
+    line-height: 1.6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Legacy support for old formatting */
+.chat-bubble strong {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.chat-bubble ul {
+    margin: 15px 0;
+    padding-left: 25px;
+    list-style-type: none;
+}
+
+.chat-bubble li {
+    margin: 8px 0;
+    line-height: 1.5;
+    position: relative;
+}
+
+.chat-bubble li::before {
+    content: "•";
+    color: var(--primary-color);
+    font-weight: bold;
+    position: absolute;
+    left: -20px;
+}
+
+.chat-bubble br {
+    line-height: 1.6;
+}
+
+.chat-bubble p {
+    margin: 8px 0;
+}
+
+.formatted-content strong {
+    color: var(--primary-color) !important;
+    font-weight: 600 !important;
+}
+
+.chat-bubble h3, .chat-bubble h4 {
+    color: var(--primary-color);
+    margin: 12px 0 8px 0;
+}
+
+.chat-bubble-ai {
+    background-color: var(--input-bg);
+    border-radius: 20px 20px 0 20px;
+    align-self: flex-end;
+    margin-left: auto;
+}
+
+.chat-bubble-user {
+    background-color: var(--primary-color);
+    border-radius: 20px 20px 20px 0;
+    align-self: flex-start;
+}
+
+.chat-message {
+    display: flex;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.icon-wrapper {
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    padding: 8px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+        backdrop-filter: blur(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+
+}
+.input-box .icon-wrapper {
+    margin-right: 0;
+    margin-left: 2px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-end;
+    height: 100%;
+    background-color:#fecd50 ;
+}
+
+
+.icon-wrapper svg {
+    height: 20px;
+    width: 20px;
+    color: var(--text-color);
+}
+
+.message-content {
+    flex-grow: 1;
+}
+
+.chat-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.chat-header span {
+    font-size: 0.9em;
+    color: var(--border-color);
+}
+
+.chat-header .label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    flex-wrap: wrap;
+}
+
+.chat-header .label svg {
+    height: 16px;
+    width: 16px;
+}
+
+.chat-header .label.translated {
+    color: var(--primary-color);
+    text-align: justify;
+}
+
+.chat-header .label.detected {
+    color: #f1c40f;
+}
+
+
+/* Fixed bottom input */
+.main-input-container {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    z-index: 5;
+    
+}
+
+.main-input-container input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-color);
+    font-size: 1em;
+    width: 80%;
+}
+
+.main-input-container input::placeholder {
+    color: var(--border-color);
+}
+
+.main-input-container .input-box {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--container-bg);
+    border-radius: 30px;
+    padding: 4px 8px 4px 16px;
+    box-shadow: 0 4px 15px var(--shadow-color);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    word-wrap: break-word;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+
+}
+.main-input-container .input-box button {
+    background: none;
+    color: var(--text-color);
+    border: none;
+    border-radius: 50%;
+    height: 40px;
+    width: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+
+
+.main-input-container button svg {
+    height: 20px;
+    width: 20px;
+}
+
+/* Scrollbar styling */
+/* WebKit browsers (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+    width: 6px; /* thin scrollbar */
+    height: 6px; /* horizontal scrollbar */
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color); /* thumb color */
+    border-radius: 3px;
+}
+
+*::-webkit-scrollbar-track {
+    background-color: transparent; /* track color */
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin; /* thin scrollbar */
+    scrollbar-color: var(--primary-color) transparent; /* thumb and track */
+}
+
+
+/* Media Queries for multiple devices */
+
+/* Large screens 4K / desktop */
+@media (min-width: 2560px) {
+    .container {
+        max-width: 1600px;
+        padding: 60px;
+    }
+    .logo h1 {
+        font-size: 4rem;
+    }
+    .tagline {
+        font-size: 2rem;
+    }
+}
+
+/* Laptops / Desktops */
+@media (min-width: 1200px) and (max-width: 2559px) {
+    .container {
+        max-width: 1000px;
+        padding: 50px;
+    }
+    .logo h1 {
+        font-size: 3rem;
+    }
+    .tagline {
+        font-size: 1.5rem;
+    }
+}
+
+/* Tablets landscape */
+@media (min-width: 768px) and (max-width: 1199px) {
+    .container {
+        max-width: 90%;
+        padding: 30px;
+    }
+    .logo h1 {
+        font-size: 2.5rem;
+    }
+    .tagline {
+        font-size: 1.2rem;
+    }
+}
+
+/* Tablets portrait / large phones */
+@media (min-width: 480px) and (max-width: 767px) {
+    .container {
+        width: 95%;
+        padding: 20px;
+    }
+    .logo h1 {
+        font-size: 2rem;
+    }
+    .tagline {
+        font-size: 1rem;
+    }
+    .main-input-container {
+        bottom: 15px;
+        width: 95%;
+    }
+}
+
+/* Small phones */
+@media (max-width: 479px) {
+    .container {
+        width: 95%;
+        padding: 15px;
+    }
+    .logo h1 {
+        font-size: 1.5rem;
+    }
+    .tagline {
+        font-size: 0.9rem;
+    }
+    .main-input-container {
+        bottom: 10px;
+        width: 95%;
+    }
+}
+
+
+
+.mic-icon {
+    background: var(--primary-color);
+    color: var(--text-color);
+    border: none;
+    border-radius: 50%;
+    height: 40px;
+    width: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-left: 12px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .mic-icon:hover {
+    background-color: rgba(87, 87, 87, 0.6);
+    }
+
+    .mic-icon i {
+    font-size: 24px;
+    color: #ffffff;
+    }
+
+    .commonBtn span {
+    position: absolute;
+    bottom: 0;
+    background-color: rgba(48, 48, 48, 0.5);
+    padding: 6px;
+    width:100px;
+    height: 52px;
+    border-radius: 5px;
+    color: rgb(139, 139, 139);
+    transition: 0.3s;
+    display: none;
+    }
+
+    .commonBtn:hover span {
+    top: -56px;
+    display: block;
+    }
+
+
+
+    #microphone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 21;
+    }
+
+    #microphone.visible {
+    display: flex;
+    }
+
+    #microphone .recoder {
+    position: relative;
+    width: 90%;
+    max-width: 400px;
+    height: 400px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 25px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+
+    }
+
+    #microphone .close {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    }
+
+    #microphone .close span::before,
+    #microphone .close span::after {
+    content: '';
+    position: absolute;
+    width: 2px;
+    height: 20px;
+    background: rgba(241, 241, 241, 0.6);
+    border-radius: 2px;
+    left: 14px;
+    top: 6px;
+    }
+
+    #microphone .close span::before { transform: rotate(-45deg); }
+    #microphone .close span::after { transform: rotate(45deg); }
+
+    #recoredText {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fdfdfd;
+    text-align: center;
+    margin: 20px 0;
+    }
+
+    #microphone select {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    color: #fdfdfd;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 30px 6px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    outline: none;
+    width: 280px;
+    }
+
+    #microphone select option {
+    color: black;
+    background: rgba(255, 255, 255, 0.9);
+    }
+
+    #microphone select:hover,
+    #microphone select:focus {
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.1);
+    }
+
+    #speakBtn {
+    position: relative;
+    background-color: rgba(51, 51, 51, 0.6);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    }
+
+    #speakBtn i {
+    font-size: 32px;
+    color: #ffffff;
+    }
+
+    #speakBtn.active {
+    background-color: rgb(235, 38, 38);
+    }
+
+    #speakBtn.active::before {
+    content: '';
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border: 2px solid #333;
+    border-radius: 50%;
+    animation: zoomin 1s infinite;
+    }
+
+    @keyframes zoomin {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(2.5); }
+    }
+
+    @media (max-width: 768px) {
+    nav { flex-direction: column; gap: 8px; }
+    .nav-middle .search-box input { width: 100%; font-size: 14px; }
+    #microphone .recoder { width: 90%; height: 350px; padding: 20px; }
+    #speakBtn { width: 50px; height: 50px; }
+    #speakBtn i { font-size: 28px; }
+    }
+
+
+     .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px); /* For Safari */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, rgba(202, 246, 25, 0.9), rgba(1, 205, 205, 0.8));
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+
+        /* Staggered animation for each dot */
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .dot:nth-child(4) {
+            animation-delay: 0.6s;
+        }
+        
+        /* The bouncing animation keyframes */
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+
+.fourdot .message-content{
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding:16px 6px;
+}
+

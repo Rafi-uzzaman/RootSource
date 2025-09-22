@@ -1,0 +1,14 @@
+streamlit
+langchain
+langchain-community
+langchain-groq
+duckduckgo-search
+langdetect
+deep-translator
+duckduckgo-search
+ddgs
+requests
+google-cloud-texttospeech
+flask
+starlette
+gunicorn
