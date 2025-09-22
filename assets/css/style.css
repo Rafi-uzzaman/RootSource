@@ -80,6 +80,8 @@ body {
     font-size: clamp(1.5rem, 2.5vw, 3rem); /* scales dynamically */
     color: var(--primary-color);
     text-shadow: 2px 2px 4px var(--shadow-color);
+    font-style: italic;
+    font-family: 'Courier New', Courier, monospace;
     font-weight: 600;
 }
 
