@@ -40,11 +40,26 @@ function speakAIResponse(text, detectedLang) {
     const preferredLang = detectedLang || selectedOption.data('lang') || 'en-US';
     const preferredVoiceName = selectedOption.data('voice') || localStorage.getItem(VOICE_STORAGE_KEY) || '';
 
-    // Find best voice for the language
-    let voiceToUse = voices.find(v => v.name === preferredVoiceName) ||
+    // Find the best voice for the detected language with a robust fallback strategy
+    let voiceToUse = voices.find(v => v.name === preferredVoiceName && (v.lang || '').startsWith(preferredLang.split('-')[0])) ||
         voices.find(v => (v.lang || '') === preferredLang) ||
-        voices.find(v => (v.lang || '').startsWith(preferredLang.split('-')[0])) ||
-        voices.find(v => (v.lang || '').startsWith('en'));
+        voices.find(v => (v.lang || '').startsWith(preferredLang.split('-')[0]));
+
+    // If no specific voice is found for the language, inform the user and exit gracefully.
+    if (!voiceToUse) {
+        const friendlyLangName = new Intl.DisplayNames(['en'], { type: 'language' }).of(preferredLang.split('-')[0]) || preferredLang;
+        const alertMessage = `Could not find a voice for <strong>${friendlyLangName}</strong> to read the response. You may need to install the text-to-speech voice pack for this language in your browser or operating system.`;
+        
+        showCustomAlert(alertMessage);
+
+        console.warn(`No voice found for language: ${preferredLang}. Cannot speak response.`);
+        
+        // Clean up UI and flags as if speech ended
+        $('#voiceIndicator').removeClass('active');
+        $('#voice_search').removeClass('voice-active');
+        isVoiceConversation = false;
+        return;
+    }
 
     // Create and configure speech utterance
     let utterance = new SpeechSynthesisUtterance(cleanText);
@@ -54,7 +69,7 @@ function speakAIResponse(text, detectedLang) {
     // Adjust speech rate and pitch for better experience
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
-    utterance.volume = 0.8;
+    utterance.volume = 1.0;
 
     // Show voice indicator
     $('#voiceIndicator').addClass('active');
@@ -105,6 +120,10 @@ $(document).ready(function() {
     $('#microphone .close').click(function() {
         $('#microphone').removeClass('visible');
     });
+
+    $('#customAlertClose').click(hideCustomAlert);
+    $('#aboutLink').click(showAboutModal);
+    $('#aboutModalClose').click(hideAboutModal);
 });
 
 // Populate voice/language selector with bn-BD priority and one voice per language
@@ -123,7 +142,7 @@ $(document).ready(function() {
             if (name.includes('google')) score += 5;
             if (name.includes('microsoft')) score += 4;
             if (name.includes('natural') || name.includes('enhanced')) score += 2;
-            if (name.includes('flo')) score += 1; // small boost for flo names
+            if (PREFERRED_VOICE_ALIASES.map(n => n.toLowerCase()).includes(name)) score += 10;
             return score;
         }
 
@@ -354,7 +373,27 @@ $(document).ready(function() {
         synth.speak(utterance);
     }
 
-
-
+    $('#stopVoiceBtn').click(function() {
+        speech.recognition.stop();
+        stopSpeech();
+        isVoiceConversation = false; // Reset voice conversation flag
+    });
 
 });
+
+function showCustomAlert(message) {
+    $('#customAlertMessage').html(message);
+    $('#customAlert').addClass('visible');
+}
+
+function hideCustomAlert() {
+    $('#customAlert').removeClass('visible');
+}
+
+function showAboutModal() {
+    $('#aboutModal').addClass('visible');
+}
+
+function hideAboutModal() {
+    $('#aboutModal').removeClass('visible');
+}

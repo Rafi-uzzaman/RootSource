@@ -9,7 +9,7 @@ arxiv==2.1.0
 langdetect==1.0.9
 deep-translator==1.11.4
 python-dotenv==1.0.1
-requests==2.32.3
+requests>=2.31.0,<3.0.0
 gunicorn==22.0.0
 
 # Dev/Test
