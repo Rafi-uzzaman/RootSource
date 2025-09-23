@@ -4,6 +4,8 @@ langchain==0.2.14
 langchain-community==0.2.12
 langchain-openai==0.1.21
 duckduckgo-search==7.5.5
+wikipedia==1.4.0
+arxiv==2.1.0
 langdetect==1.0.9
 deep-translator==1.11.4
 python-dotenv==1.0.1

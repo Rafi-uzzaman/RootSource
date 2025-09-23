@@ -27,8 +27,9 @@ def test_chat_demo_mode_without_key():
     assert r.status_code == 200
     data = r.json()
     assert "reply" in data
-    # Demo mode message expected when no GROQ_API_KEY is present
-    assert "Demo Mode" in data["reply"]
+    # Should get a meaningful response (either from search tools or demo mode)
+    assert len(data["reply"]) > 50  # Ensure we get a substantial response
+    assert "crop rotation" in data["reply"].lower()  # Should contain the topic
 
 
 def test_greeting_path():

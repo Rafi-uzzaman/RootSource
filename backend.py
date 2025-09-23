@@ -9,8 +9,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
-from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun, ArxivQueryRun
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper, WikipediaAPIWrapper, ArxivAPIWrapper
 from langdetect import detect
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv, find_dotenv
@@ -49,9 +49,12 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
 
-# --- Initialize AI Tools (Optimized for Speed) ---
-duckduckgo_search = DuckDuckGoSearchRun(api_wrapper=DuckDuckGoSearchAPIWrapper(region="in-en", time="y", max_results=1))
-tools = [duckduckgo_search]  # Using only one fast search tool
+# --- Initialize AI Tools ---
+wiki = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=200))
+arxiv = ArxivQueryRun(api_wrapper=ArxivAPIWrapper(top_k_results=1, doc_content_chars_max=200))
+duckduckgo_search = DuckDuckGoSearchRun(api_wrapper=DuckDuckGoSearchAPIWrapper(region="in-en", time="y", max_results=2))
+
+tools = [wiki, arxiv, duckduckgo_search]
 
 # --- Memory ---
 chat_memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
@@ -141,17 +144,44 @@ def get_direct_response(query):
         return demo
 
 def get_search_enhanced_response(query):
-    """Only use search when absolutely necessary"""
+    """Use multiple search tools for comprehensive information"""
     try:
-        # Use search for very specific current information needs
-        search_tool = tools[0]  # DuckDuckGo
-        search_result = search_tool.run(query)
+        search_results = []
         
-        # Combine search with direct LLM response
-        enhanced_query = f"""
+        # Try Wikipedia first for general agricultural knowledge
+        try:
+            wiki_tool = tools[0]  # Wikipedia
+            wiki_result = wiki_tool.run(query)
+            if wiki_result and len(wiki_result.strip()) > 10:
+                search_results.append(f"Wikipedia: {wiki_result[:200]}")
+        except Exception as e:
+            print(f"Wikipedia search error: {e}")
+        
+        # Try Arxiv for scientific research
+        try:
+            arxiv_tool = tools[1]  # Arxiv
+            arxiv_result = arxiv_tool.run(query)
+            if arxiv_result and len(arxiv_result.strip()) > 10:
+                search_results.append(f"Research: {arxiv_result[:200]}")
+        except Exception as e:
+            print(f"Arxiv search error: {e}")
+        
+        # Try DuckDuckGo for current information
+        try:
+            duckduckgo_tool = tools[2]  # DuckDuckGo
+            ddg_result = duckduckgo_tool.run(query)
+            if ddg_result and len(ddg_result.strip()) > 10:
+                search_results.append(f"Current info: {ddg_result[:200]}")
+        except Exception as e:
+            print(f"DuckDuckGo search error: {e}")
+        
+        # Combine all search results
+        if search_results:
+            combined_info = " | ".join(search_results)
+            enhanced_query = f"""
 You are RootSource AI, an expert farming and agriculture assistant.
 
-Based on this current information: {search_result[:300]}...
+Based on this comprehensive information: {combined_info}
 
 Question: {query}
 
@@ -167,6 +197,10 @@ Provide a well-formatted, helpful answer about farming/agriculture using the fol
 
 Make it easy to read and actionable for farmers.
 """
+        else:
+            # Fallback to direct response if no search results
+            enhanced_query = query
+            
         return get_direct_response(enhanced_query)
     except Exception as e:
         print(f"Search error: {e}")
@@ -296,10 +330,13 @@ Now provide a comprehensive, well-formatted answer about the farming topic."""
             # Try direct response first (fastest)
             response_text = get_direct_response(prompt)
             
-            if response_text and len(response_text.strip()) > 10:
+            # Check if we got a demo mode response (no GROQ API key)
+            if "Demo Mode" in response_text:
+                break  # Keep demo mode response, don't try search
+            elif response_text and len(response_text.strip()) > 10:
                 break
             else:
-                # If direct response is too short, try with search
+                # If direct response is too short and we have API key, try with search
                 response_text = get_search_enhanced_response(translated_query)
                 if response_text:
                     break
