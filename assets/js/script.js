@@ -1,4 +1,5 @@
 var isVoice = 0;
+var isVoiceConversation = false; // Track if current conversation was initiated by voice
 const DEFAULT_VOICE_NAME = 'Flo-en-US';
 const PREFERRED_VOICE_ALIASES = [
     'Flo-en-US',
@@ -15,6 +16,75 @@ function stopSpeech() {
     if (speechEngine.speaking) {
         speechEngine.cancel();
     }
+}
+
+// Function to speak AI response
+function speakAIResponse(text, detectedLang) {
+    if (!isVoiceConversation) return; // Only speak if conversation was initiated by voice
+
+    let synth = window.speechSynthesis;
+    let voices = synth.getVoices();
+    
+    if (!voices.length) {
+        synth.onvoiceschanged = () => speakAIResponse(text, detectedLang);
+        return;
+    }
+
+    // Clean HTML tags from response for speech
+    let cleanText = text.replace(/<[^>]*>/g, ' ')
+                       .replace(/\s+/g, ' ')
+                       .trim();
+
+    // Use detected language or fallback to stored preference
+    const selectedOption = $('#lang option:selected');
+    const preferredLang = detectedLang || selectedOption.data('lang') || 'en-US';
+    const preferredVoiceName = selectedOption.data('voice') || localStorage.getItem(VOICE_STORAGE_KEY) || '';
+
+    // Find best voice for the language
+    let voiceToUse = voices.find(v => v.name === preferredVoiceName) ||
+        voices.find(v => (v.lang || '') === preferredLang) ||
+        voices.find(v => (v.lang || '').startsWith(preferredLang.split('-')[0])) ||
+        voices.find(v => (v.lang || '').startsWith('en'));
+
+    // Create and configure speech utterance
+    let utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = preferredLang || 'en-US';
+    if (voiceToUse) utterance.voice = voiceToUse;
+    
+    // Adjust speech rate and pitch for better experience
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 0.8;
+
+    // Show voice indicator
+    $('#voiceIndicator').addClass('active');
+    $('#voice_search').addClass('voice-active');
+
+    // Add event listeners for better user experience
+    utterance.onstart = () => {
+        console.log('Started speaking AI response');
+    };
+    
+    utterance.onend = () => {
+        console.log('Finished speaking AI response');
+        // Hide voice indicator
+        $('#voiceIndicator').removeClass('active');
+        $('#voice_search').removeClass('voice-active');
+        // Reset voice conversation flag after response is complete
+        isVoiceConversation = false;
+    };
+
+    utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event.error);
+        // Hide voice indicator on error
+        $('#voiceIndicator').removeClass('active');
+        $('#voice_search').removeClass('voice-active');
+        isVoiceConversation = false;
+    };
+
+    // Stop any current speech and speak the new response
+    stopSpeech();
+    synth.speak(utterance);
 }
 $(document).ready(function() {
     // Mic UI handlers
@@ -157,6 +227,10 @@ $(document).ready(function() {
 
     function checkhSpeach() {
         $('#speakBtn').removeClass('active');
+        
+        // Mark this as a voice-initiated conversation
+        isVoiceConversation = true;
+        
         if (r == 0) {
             // new Audio('assets/audio/end.mp3').play();
             setTimeout(function() {

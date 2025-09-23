@@ -380,7 +380,10 @@ Advanced voice capabilities powered by Web Speech API:
 
 - **Speech Recognition**: Convert speech to text in multiple languages
 - **Text-to-Speech**: Natural voice output with language-specific voices
+- **🆕 Auto Voice Response**: AI automatically reads responses aloud for voice-initiated conversations
 - **Voice Persistence**: Remembers user's preferred voice settings
+- **Visual Indicators**: Real-time feedback during voice processing
+- **Hands-free Operation**: Perfect for farmers working in the field
 - **Offline Fallback**: Graceful degradation when voice services unavailable
 
 ---

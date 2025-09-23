@@ -794,3 +794,87 @@ body {
     padding:16px 6px;
 }
 
+/* Voice Response Indicators */
+.voice-indicator {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(46, 204, 113, 0.9);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: none;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: voicePulse 2s infinite;
+}
+
+.voice-indicator.active {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.voice-indicator .voice-icon {
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes voicePulse {
+    0%, 100% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Voice conversation status in chat bubble */
+.voice-conversation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(46, 204, 113, 0.2);
+    color: var(--primary-color);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 8px;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.voice-conversation-badge svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+}
+
+/* Enhanced microphone button when voice conversation is active */
+#voice_search.voice-active {
+    background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.6);
+    animation: voiceActivePulse 1.5s infinite;
+}
+
+@keyframes voiceActivePulse {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(46, 204, 113, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(46, 204, 113, 0.8);
+    }
+}
+
