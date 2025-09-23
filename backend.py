@@ -65,8 +65,8 @@ def load_llm():
     if not groq_api_key:
         raise ValueError("GROQ_API_KEY not found in environment variables")
     return ChatOpenAI(
-        model_name="llama-3.1-8b-instant",
-        temperature=0.7,
+        model_name="openai/gpt-oss-120b",
+        temperature=0.9,
         openai_api_key=groq_api_key,
         openai_api_base="https://api.groq.com/openai/v1"
     )
@@ -221,7 +221,7 @@ async def chat(req: ChatRequest):
 
     # Quick response for greetings
     if any(greeting in translated_query.lower() for greeting in ['hi', 'hello', 'hey', 'greetings']):
-        response_text = """**Hello! I'm RootSource AI** 🌾
+        response_text = """**Hello! I'm RootSource AI** 
 
 Your expert AI assistant for all things farming and agriculture.
 
@@ -235,8 +235,9 @@ Your expert AI assistant for all things farming and agriculture.
 
 Feel free to ask me anything related to farming!"""
         # Format the response before returning
-        formatted_response = format_response(response_text)
-        final_response = translate_back(formatted_response, original_lang)
+        translate_lang = translate_back(response_text, original_lang)
+        formatted_response = format_response(translate_lang)
+        final_response = formatted_response
         return {"reply": final_response, "detectedLang": original_lang, "translatedQuery": translated_query}
 
     # SIMPLE TEST: If the user asks about "test", return a simple formatted response
@@ -257,8 +258,9 @@ This is a test of **bold text** formatting.
 
 This should show **bold** text and proper formatting."""
         # Format the response before returning
-        formatted_response = format_response(response_text)
-        final_response = translate_back(formatted_response, original_lang)
+        translate_lang = translate_back(response_text, original_lang)
+        formatted_response = format_response(translate_lang)
+        final_response = formatted_response
         return {"reply": final_response, "detectedLang": original_lang, "translatedQuery": translated_query}
 
     # Prepare the formatted prompt
@@ -352,8 +354,9 @@ Now provide a comprehensive, well-formatted answer about the farming topic."""
         response_text = "I'm sorry, I'm experiencing high demand right now. Please try again in a moment."
 
     # Format and translate back
-    formatted_response = format_response(response_text)
-    final_response = translate_back(formatted_response, original_lang)
+    translate_lang = translate_back(response_text, original_lang)
+    formatted_response = format_response(translate_lang)
+    final_response = formatted_response
     return {"reply": final_response, "detectedLang": original_lang, "translatedQuery": translated_query}
 
 

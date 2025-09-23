@@ -9,6 +9,45 @@
     
 </head>
 <body>
+    <!-- About Modal -->
+    <div id="aboutModal" class="custom-alert-modal">
+        <div class="custom-alert-content">
+            <button id="aboutModalClose" class="custom-alert-close">&times;</button>
+            <div class="about-logo">
+                <img src="assets/logo.png" alt="RootSource AI Logo">
+            </div>
+            <p class="about-description">
+                RootSource AI is a sophisticated, multilingual agricultural assistant designed to provide farmers, researchers, and enthusiasts with expert-level advice and real-time information. By integrating a powerful AI engine with a multi-source research system and a seamless voice interface, RootSource AI delivers accurate, context-aware answers to all your farming questions.
+            </p>
+            <div class="about-features">
+                <h3>Key Features</h3>
+                <ul>
+                    <li><span class="feature-icon">🤖</span> Advanced AI Engine</li>
+                    <li><span class="feature-icon">🔍</span> Multi-Source Research</li>
+                    <li><span class="feature-icon">🌐</span> Global Language Support</li>
+                    <li><span class="feature-icon">🎙️</span> Hands-Free Voice Interface</li>
+                </ul>
+            </div>
+            <div class="about-footer">
+                <p>Developed with ❤️ by Team BlueDot</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="customAlert" class="custom-alert-modal">
+        <div class="custom-alert-content">
+            <button id="customAlertClose" class="custom-alert-close">&times;</button>
+            <div class="custom-alert-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.74c1.154 2-.762 4.5-3.121 4.5H5.167c-2.36 0-4.275-2.5-3.12-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <h3 class="custom-alert-title">Voice Unavailable</h3>
+            <p id="customAlertMessage" class="custom-alert-message"></p>
+        </div>
+    </div>
+    
     <div class="overlay"></div>
     
     <!-- Voice Response Indicator -->
@@ -17,7 +56,12 @@
             <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v4a3.75 3.75 0 1 1-7.5 0v-4Z" />
             <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291A6.751 6.751 0 0 1 5.25 12.75v-1.5A.75.75 0 0 1 6 10.5Z" />
         </svg>
-        Reading response...
+        <span class="voice-text">Reading response...</span>
+        <button id="stopVoiceBtn" class="stop-voice-btn" title="Stop voice">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+            </svg>
+        </button>
     </div>
     
     <div class="container">
@@ -27,6 +71,9 @@
         </div>
         <div class="tagline">Ask your farming-related questions in any language, and get accurate answers!</div>
         <div class="developer-info" style="font-style: oblique; font-family: monospace;color: gold; text-decoration: underline;font-weight: 400;">Developed by: Team "BlueDot"</div>
+        <div class="about-link-container">
+            <a href="#" id="aboutLink">About RootSource AI</a>
+        </div>
         <div class="chat-area">
 
 
@@ -175,7 +222,7 @@ $(document).ready(function () {
                 <div class="message-content">
                     <div class="chat-header">
                         <span class="label detected">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.513 14.077c.427 1.344 1.144 2.524 2.158 3.493.593.565 1.25.998 1.942 1.353A9.998 9.998 0 0 0 12 22.5c2.686 0 5.224-.809 7.387-2.378a7.522 7.522 0 0 1-.954-1.076l-.41-.41a5.158 5.158 0 0 0-1.077-.92c-.657-.362-1.378-.588-2.127-.674a18.284 18.284 0 0 0-1.923-.205 18.423 18.423 0 0 0-3.328.096c-.76.088-1.503.313-2.164.675a5.21 5.21 0 0 0-1.085.92l-.41.41c-.244.246-.465.48-.654.708a10.045 10.045 0 0 0-.847.962 10.012 10.012 0 0 0-.962.847l-.025.027a3.024 3.024 0 0 1-.724.593c-.633.364-1.348.59-2.091.674-.63.074-1.295.06-1.92-.046-.226-.038-.45-.074-.674-.11ZM3.75 7.5c0-.621.504-1.125 1.125-1.125h13.5c.621 0 1.125.504 1.125 1.125v6.75a9.996 9.996 0 0 0-2.07-.363 18.204 18.204 0 0 1-3.328-.096 18.416 18.416 0 0 1-1.923-.205c-.749-.086-1.47-.312-2.127-.674a5.158 5.158 0 0 0-1.077-.92l-.41-.41a7.522 7.522 0 0 1-.954-1.076C5.224 15.60 4.417 12.52 4.417 10.5a7.5 7.5 0 0 1-1.125-3V7.5Zm0 0c-.621 0-1.125.504-1.125 1.125v.75c0 4.142 3.358 7.5 7.5 7.5s7.5-3.358 7.5-7.5V8.625c0-.621-.504-1.125-1.125-1.125H3.75Z" clip-rule="evenodd" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.513 14.077c.427 1.344 1.144 2.524 2.158 3.493.593.565 1.25.998 1.942 1.353A9.998 9.998 0 0 0 12 22.5c2.686 0 5.224-.809 7.387-2.378a7.522 7.522 0 0 1-.954-1.076l-.41-.41a5.158 5.158 0 0 0-1.077-.92c-.657-.362-1.378-.588-2.127-.674a18.284 18.284 0 0 0-1.923-.205 18.423 18.423 0 0 0-3.328.096c-.76.088-1.503.313-2.164.675a5.21 5.21 0 0 0-1.085.92l-.41.41c-.244.246-.465.48-.654.708a10.045 10.045 0 0 0-.847.962 10.012 10.012 0 0 0-.962.847l-.025.027a3.024 3.024 0 0 1-.724.593c-.633.364-1.348.59-2.091.674-.63.074-1.295.06-1.92-.046-.226-.038-.45-.074-.674-.11ZM3.75 7.5c0-.621.504-1.125 1.125-1.125h13.5c.621 0 1.125.504 1.125 1.125v6.75a9.996 9.996 0 0 0-2.07-.363 18.204 18.204 0 0 1-3.328-.096 18.416 18.416 0 0 1-1.923-.205c-.749-.086-1.47-.312-2.127-.674a5.158 5.158 0 0 0-1.077-.92l-.41-.41a7.522 7.522 0 0 1-.954-1.076C5.224 15.06 4.417 12.52 4.417 10.5a7.5 7.5 0 0 1-1.125-3V7.5Zm0 0c-.621 0-1.125.504-1.125 1.125v.75c0 4.142 3.358 7.5 7.5 7.5s7.5-3.358 7.5-7.5V8.625c0-.621-.504-1.125-1.125-1.125H3.75Z" clip-rule="evenodd" /></svg>
                             Detected Language: ${detectedLang}
                             </span>
                         <span class="label translated">                           
