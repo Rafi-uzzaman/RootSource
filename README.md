@@ -32,7 +32,7 @@ In an era where precision agriculture meets artificial intelligence, farmers nee
 
 ---
 
-## � How RootSource AI Works
+##  How RootSource AI Works
 
 <div align="center">
 
@@ -44,7 +44,7 @@ In an era where precision agriculture meets artificial intelligence, farmers nee
 
 ```mermaid
 graph TD
-    A[👨‍🌾 Farmer Input] --> B{�️ Input Method?}
+    A[👨‍🌾 Farmer Input] --> B{📲 Input Method?}
     
     %% Input Methods
     B -->|Voice| C[🗣️ Speech Recognition]
@@ -133,7 +133,7 @@ graph TD
 - **Context Preservation**: Maintains meaning across translations
 - **Regional Adaptation**: Considers local farming practices
 
-#### **�️ Voice Optimization**
+#### **📡 Voice Optimization**
 - **Noise Filtering**: Works in outdoor farm environments
 - **Accent Recognition**: Understands diverse speaking patterns
 - **Smart Interruption**: Allows mid-response control
@@ -142,7 +142,7 @@ graph TD
 
 ---
 
-## �🚀 Features That Cultivate Success
+## 🚀 Features That Cultivate Success
 
 <div align="center">
 
@@ -154,7 +154,7 @@ graph TD
 
 </div>
 
-### �️ **Voice-First Experience**
+### 🖇️ **Voice-First Experience**
 Transform your farming routine with hands-free interaction:
 - **🗣️ Natural Speech Recognition**: Ask questions while working in the field
 - **🔊 Audio Responses**: Get answers read aloud with crystal-clear audio feedback
@@ -163,10 +163,10 @@ Transform your farming routine with hands-free interaction:
 
 ### 💻 **Modern Agricultural Interface**
 Experience agriculture through a contemporary lens:
-- **� Mobile-First Design**: Optimized for smartphones and tablets used in farming
+- **📱 Mobile-First Design**: Optimized for smartphones and tablets used in farming
 - **🌙 Adaptive Themes**: Light and dark modes suitable for different lighting conditions
 - **⚡ Real-time Processing**: Instant responses without lag or delays
-- **� Progressive Enhancement**: Works offline with cached responses
+- **🖥️ Progressive Enhancement**: Works offline with cached responses
 
 ### 🏗️ **Enterprise-Grade Architecture**
 Built for scale and reliability:
@@ -280,10 +280,10 @@ Once running, visit: **http://localhost:8000**
 
 ```mermaid
 graph TB
-    subgraph "� Frontend Layer"
+    subgraph "📱 Frontend Layer"
         A[📱 Web Interface<br/>HTML5 + CSS3 + JS]
-        B[�️ Voice Interface<br/>Web Speech API]
-        C[� Multi-Language UI<br/>Auto-Translation]
+        B[📱 Voice Interface<br/>Web Speech API]
+        C[📲 Multi-Language UI<br/>Auto-Translation]
     end
     
     subgraph "⚡ API Layer"
@@ -380,13 +380,13 @@ sequenceDiagram
     participant R as 🔍 Research APIs
     participant DB as 💾 Memory Store
     
-    F->>UI: �️ Voice/Text Input
+    F->>UI: 📲 Voice/Text Input
     UI->>API: 📤 HTTP Request
     API->>API: 🌐 Language Detection
     API->>AI: 🔄 Process Query
     
     alt Complex Agricultural Query
-        AI->>R: � Multi-Source Search
+        AI->>R: 💻 Multi-Source Search
         R-->>AI: 📊 Research Results
     else Simple Question
         AI->>AI: 💡 Direct Response
