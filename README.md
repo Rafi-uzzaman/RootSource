@@ -597,7 +597,30 @@ We believe the future of farming is collaborative! Join our growing community of
 
 ---
 
-## 📞 **Support & Community**
+## � **Social Media Integration**
+
+<div align="center">
+
+### **📱 Professional Link Previews Ready**
+
+*Share RootSource AI anywhere with beautiful, professional previews*
+
+</div>
+
+RootSource AI is equipped with comprehensive **Open Graph** and **Twitter Card** meta tags for rich link previews across all social media platforms. When you share the repository or deployed application, viewers will see:
+
+- **🎨 Professional 1200x630px preview image** showcasing the AI interface
+- **📝 Compelling title and description** highlighting key features
+- **🌱 Agricultural branding** with consistent green theme
+- **⚡ Key features** like AI-powered advice, voice interface, and multilingual support
+
+**Supported Platforms**: Facebook, Twitter/X, LinkedIn, WhatsApp, Telegram, Discord, Slack, and more.
+
+> 📋 **Setup Guide**: See [`SOCIAL_PREVIEW_SETUP.md`](SOCIAL_PREVIEW_SETUP.md) for complete configuration instructions.
+
+---
+
+## �📞 **Support & Community**
 
 <div align="center">
 
