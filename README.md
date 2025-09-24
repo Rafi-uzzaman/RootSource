@@ -44,7 +44,7 @@ In an era where precision agriculture meets artificial intelligence, farmers nee
 
 ```mermaid
 graph TD
-    A[👨‍🌾 Farmer Input] --> B{🎤 Input Method?}
+    A[👨‍🌾 Farmer Input] --> B{�️ Input Method?}
     
     %% Input Methods
     B -->|Voice| C[🗣️ Speech Recognition]
@@ -106,7 +106,7 @@ graph TD
 
 | 🎯 **Stage** | ⚡ **Process** | 🛠️ **Technology** | ⏱️ **Duration** |
 |:-------------|:---------------|:------------------|:----------------|
-| **🎤 Input Capture** | Voice/Text recognition | Web Speech API / Form Input | ~0.5s |
+| **�️ Input Capture** | Voice/Text recognition | Web Speech API / Form Input | ~0.5s |
 | **🌐 Language Processing** | Detection & translation | LangDetect + Google Translate | ~0.2s |
 | **🤖 AI Analysis** | Context understanding | Groq LLaMA 3.1 8B | ~1-2s |
 | **🔍 Research Phase** | Multi-source data gathering | Wikipedia + ArXiv + DuckDuckGo | ~2-3s |
@@ -133,7 +133,7 @@ graph TD
 - **Context Preservation**: Maintains meaning across translations
 - **Regional Adaptation**: Considers local farming practices
 
-#### **🎤 Voice Optimization**
+#### **�️ Voice Optimization**
 - **Noise Filtering**: Works in outdoor farm environments
 - **Accent Recognition**: Understands diverse speaking patterns
 - **Smart Interruption**: Allows mid-response control
@@ -154,7 +154,7 @@ graph TD
 
 </div>
 
-### 🎤 **Voice-First Experience**
+### �️ **Voice-First Experience**
 Transform your farming routine with hands-free interaction:
 - **🗣️ Natural Speech Recognition**: Ask questions while working in the field
 - **🔊 Audio Responses**: Get answers read aloud with crystal-clear audio feedback
@@ -282,7 +282,7 @@ Once running, visit: **http://localhost:8000**
 graph TB
     subgraph "� Frontend Layer"
         A[📱 Web Interface<br/>HTML5 + CSS3 + JS]
-        B[🎤 Voice Interface<br/>Web Speech API]
+        B[�️ Voice Interface<br/>Web Speech API]
         C[� Multi-Language UI<br/>Auto-Translation]
     end
     
@@ -380,7 +380,7 @@ sequenceDiagram
     participant R as 🔍 Research APIs
     participant DB as 💾 Memory Store
     
-    F->>UI: 🎤 Voice/Text Input
+    F->>UI: �️ Voice/Text Input
     UI->>API: 📤 HTTP Request
     API->>API: 🌐 Language Detection
     API->>AI: 🔄 Process Query
@@ -399,7 +399,9 @@ sequenceDiagram
     UI-->>F: 🔊 Voice/Text Output
     
     Note over F,DB: ⚡ Total Time: 3-8 seconds
-```</div>
+```
+
+</div>
 
 ### 🔧 **Technology Stack**
 
@@ -411,7 +413,7 @@ sequenceDiagram
 | **⚡ Backend** | FastAPI + Python 3.11+ | High performance, async support, automatic API documentation |
 | **🔍 Data Sources** | Wikipedia • ArXiv • DuckDuckGo | Comprehensive, real-time agricultural information |
 | **🌐 Frontend** | Vanilla JS + HTML5 + CSS3 | Zero dependencies, maximum performance, universal compatibility |
-| **🎤 Voice** | Web Speech API | Native browser integration, no external services needed |
+| **�️ Voice** | Web Speech API | Native browser integration, no external services needed |
 | **🐳 Container** | Docker + Gunicorn | Consistent deployment, production-ready scaling |
 | **🧪 Testing** | Pytest + CI/CD | Automated quality assurance, reliable deployments |
 
@@ -445,7 +447,7 @@ sequenceDiagram
     ├── 📖 README.md             # You are here
     ├── 📰 CHANGELOG.md          # Version history
     ├── 🚀 RELEASE_NOTES.md      # Release information
-    └── 🎤 VOICE_FEATURES.md     # Voice interface guide
+    └── �️ VOICE_FEATURES.md     # Voice interface guide
 ```
 
 </details>
@@ -508,7 +510,7 @@ graph LR
     end
     
     subgraph "🤖 RootSource AI Method"
-        G[❓ Same Question] --> H[🎙️ Voice/Text Input]
+        G[❓ Same Question] --> H[� Voice/Text Input]
         H --> I[⚡ Instant Processing<br/>3-8 Seconds]
         I --> J[🔍 Multiple Sources<br/>Global Knowledge]
         J --> K[🌐 Any Language<br/>Contextual Advice]
