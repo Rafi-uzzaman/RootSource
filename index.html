@@ -172,6 +172,13 @@
         </div>
     </div>
     <div class="main-input-container">
+        <!-- Location & NASA Data Indicator -->
+        <div class="location-status-container">
+            <span id="location-indicator" class="location-indicator global-mode" title="Detecting location for personalized agricultural advice...">
+                🌍 Detecting location...
+            </span>
+        </div>
+        
         <div class="input-box">
             <input type="text" placeholder="Ask your farming-related question here (in any language)..." id="prompt">
             <button id="sendBtn">
@@ -217,6 +224,231 @@
 <script>
 $(document).ready(function () {
     let flag = 1;
+
+    // NASA Integration Variables
+    let userLocation = null;
+    let nasaDataEnabled = false;
+    let locationDetectionAttempted = false;
+
+    // Basic initialization test
+    console.log('✅ Document ready function loaded');
+    
+    // Test basic functionality without NASA integration for now
+    try {
+        console.log('✅ jQuery version:', $.fn.jquery);
+        
+        // Test if page elements are accessible
+        if ($('#prompt').length) {
+            console.log('✅ Input element found');
+        } else {
+            console.log('❌ Input element not found');
+        }
+        
+        console.log('✅ RootSource AI initialization complete');
+        
+        // Initialize NASA location detection
+        setTimeout(() => {
+            detectUserLocation().then(() => {
+                console.log('🚀 NASA-enhanced RootSource AI ready!');
+            }).catch(err => {
+                console.log('⚠️ Using global mode:', err.message);
+                updateLocationIndicator(null);
+            });
+        }, 1000);
+        
+        // Update location indicator to show global mode
+        try {
+            const indicator = document.getElementById('location-indicator');
+            if (indicator) {
+                indicator.textContent = '🌍 Global Mode';
+                indicator.className = 'location-indicator global-mode';
+                indicator.title = 'Global mode - Basic agricultural advice available';
+                console.log('✅ Location indicator updated to global mode');
+            }
+        } catch (e) {
+            console.log('⚠️ Error updating location indicator:', e);
+        }
+        
+    } catch (e) {
+        console.log('❌ Error during basic initialization:', e);
+    }
+
+    // NASA Location Detection Functions
+    async function detectUserLocation() {
+        if (locationDetectionAttempted) return userLocation;
+        locationDetectionAttempted = true;
+        
+        try {
+            // Try browser geolocation first (most accurate)
+            if (navigator.geolocation) {
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        async (position) => {
+                            // First, get the coordinates
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            
+                            // Get address details from our backend API (which has better geolocation)
+                            try {
+                                // Use our backend to get location details (it may have better IP-based data)
+                                const detailsResponse = await fetch('/api/location/detect');
+                                
+                                if (detailsResponse.ok) {
+                                    const detailsData = await detailsResponse.json();
+                                    if (detailsData.success && detailsData.location) {
+                                        // Use backend's address data but keep precise GPS coordinates
+                                        const backendLocation = detailsData.location;
+                                        userLocation = {
+                                            latitude: lat,  // Use precise GPS coordinates
+                                            longitude: lon, // Use precise GPS coordinates
+                                            accuracy: position.coords.accuracy,
+                                            source: 'browser-enhanced',
+                                            city: backendLocation.city || 'Detected Location',
+                                            country: backendLocation.country || 'Unknown Country',
+                                            region: backendLocation.region || 'Unknown Region',
+                                            timezone: backendLocation.timezone || 'UTC'
+                                        };
+                                        
+                                        console.log('📍 GPS Coordinates:', `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                                        console.log('🏙️ Address (from backend):', `${userLocation.city}, ${userLocation.country}`);
+                                    } else {
+                                        throw new Error('Backend location data unavailable');
+                                    }
+                                } else {
+                                    throw new Error(`Backend API error: ${detailsResponse.status}`);
+                                }
+                                
+                            } catch (e) {
+                                // Fallback: use coordinates as display names
+                                userLocation = {
+                                    latitude: lat,
+                                    longitude: lon,
+                                    accuracy: position.coords.accuracy,
+                                    source: 'browser-fallback',
+                                    city: 'GPS Location',
+                                    country: `${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`,
+                                    region: 'Precise Coordinates',
+                                    timezone: 'UTC'
+                                };
+                                console.log('⚠️ Using coordinate display fallback:', e.message);
+                            }
+                            
+                            // Get NASA context with the precise coordinates
+                            try {
+                                const response = await fetch('/api/location/context', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        latitude: userLocation.latitude,
+                                        longitude: userLocation.longitude
+                                    })
+                                });
+                                
+                                if (response.ok) {
+                                    const contextData = await response.json();
+                                    userLocation.context = contextData.context;
+                                    nasaDataEnabled = true;
+                                    updateLocationIndicator(userLocation);
+                                    console.log('🛰️ NASA agricultural data loaded for precise location');
+                                }
+                            } catch (e) {
+                                console.log('⚠️ NASA context unavailable:', e.message);
+                                updateLocationIndicator(userLocation);
+                            }
+                            
+                            resolve(userLocation);
+                        },
+                        async () => {
+                            // Fallback to IP-based detection
+                            await detectLocationByIP();
+                            resolve(userLocation);
+                        },
+                        { timeout: 10000 }
+                    );
+                });
+            } else {
+                // Browser doesn't support geolocation
+                await detectLocationByIP();
+            }
+        } catch (error) {
+            console.log('Location detection failed:', error);
+            await detectLocationByIP();
+        }
+        
+        return userLocation;
+    }
+
+    async function detectLocationByIP() {
+        try {
+            const response = await fetch('/api/location/detect');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success || data.fallback) {
+                    userLocation = {
+                        ...data.location,
+                        source: data.fallback ? 'fallback' : 'ip'
+                    };
+                    
+                    // Get NASA context for IP-detected location
+                    try {
+                        const contextResponse = await fetch('/api/location/context', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                latitude: userLocation.latitude,
+                                longitude: userLocation.longitude
+                            })
+                        });
+                        
+                        if (contextResponse.ok) {
+                            const contextData = await contextResponse.json();
+                            userLocation.context = contextData.context;
+                            nasaDataEnabled = true;
+                            updateLocationIndicator(userLocation);
+                            console.log('🛰️ NASA data loaded via IP geolocation');
+                        }
+                    } catch (e) {
+                        console.log('⚠️ NASA context unavailable:', e.message);
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('IP-based location detection failed:', error);
+        }
+    }
+
+    function updateLocationIndicator(location) {
+        const indicator = document.getElementById('location-indicator');
+        if (indicator) {
+            let locationText = '';
+            let statusClass = '';
+            
+            if (location && nasaDataEnabled) {
+                // Show detailed location for NASA mode
+                const cityName = location.city !== 'Unknown' ? location.city : 'Detected Location';
+                const countryName = location.country !== 'Unknown' ? location.country : 
+                    `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`;
+                locationText = `📍 ${cityName}, ${countryName} 🛰️`;
+                statusClass = 'nasa-enabled';
+                indicator.title = `NASA satellite data active for ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)} - Enhanced agricultural recommendations`;
+            } else if (location) {
+                // Show location for basic mode
+                const cityName = location.city !== 'Unknown' ? location.city : 'Your Location';
+                const countryName = location.country !== 'Unknown' ? location.country : 
+                    `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`;
+                locationText = `📍 ${cityName}, ${countryName}`;
+                statusClass = 'location-only';
+                indicator.title = `Location detected: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)} - Location-aware agricultural advice`;
+            } else {
+                locationText = '🌍 Global Mode';
+                statusClass = 'global-mode';
+                indicator.title = 'Global mode - General agricultural advice';
+            }
+            
+            indicator.textContent = locationText;
+            indicator.className = `location-indicator ${statusClass}`;
+        }
+    }
 
     // Utility Functions
     function getPromptText() {
@@ -355,23 +587,96 @@ $(document).ready(function () {
         appendUserMessage(promptText);
         addDelayAnimation();
 
-
         try {
+            console.log('🚀 Sending message:', promptText);
             const API_BASE = (window.ROOTSOURCE_API_BASE || '').replace(/\/$/, '');
-            const response = await fetch(`${API_BASE}/chat`, {
+            
+            // Intelligent endpoint selection with fallback handling
+            const hasLocation = userLocation && nasaDataEnabled;
+            const endpoint = hasLocation ? '/chat/enhanced' : '/chat';
+            const url = `${API_BASE}${endpoint}`;
+            
+            // Show data source indicator
+            const dataSource = hasLocation ? 
+                `🛰️ NASA-Enhanced (${userLocation.city}, ${userLocation.country})` : 
+                '🤖 AI-Enhanced (Advanced Research Mode)';
+            console.log('📡 API URL:', url, `- ${dataSource}`);
+            
+            // Add temporary status indicator
+            const statusIndicator = document.createElement('div');
+            statusIndicator.className = 'processing-indicator';
+            statusIndicator.innerHTML = `
+                <div style="padding: 8px; background: rgba(52, 152, 219, 0.1); border-radius: 8px; margin: 8px 0; font-size: 0.9em; color: #3498db;">
+                    <i class="fa fa-spinner fa-spin"></i> Processing with ${dataSource}...
+                </div>`;
+            document.getElementById('chatbox').appendChild(statusIndicator);
+            
+            const requestBody = { 
+                message: promptText,
+                voice: isVoice === 1 
+            };
+            
+            // Add location data if available for NASA-enhanced responses
+            if (hasLocation) {
+                requestBody.location = {
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
+                    city: userLocation.city || null,
+                    country: userLocation.country || null
+                };
+                console.log('🛰️ Including NASA location context in request');
+            } else {
+                console.log('🤖 Using AI-enhanced research mode (NASA data unavailable)');
+            }
+            
+            const response = await fetch(url, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({ message: promptText })
+                body: JSON.stringify(requestBody)
             });
-            const data = await response.json();
             
-            appendBotMessage(data.reply,data.detectedLang,data.translatedQuery);
+            console.log('📊 Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Response received:', data.detectedLang || 'unknown language');
+            
+            // Remove processing indicator
+            const existingIndicator = document.querySelector('.processing-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            // Log data source usage
+            if (hasLocation && data.nasa_context_used !== false) {
+                console.log('🛰️ Response enhanced with NASA agricultural data!');
+            } else {
+                console.log('🤖 Response generated using AI-enhanced research mode');
+            }
+            
+            appendBotMessage(data.reply, data.detectedLang, data.translatedQuery);
+            
         } catch (err) {
             console.error("Error:", err);
+            
+            // Remove processing indicator on error
+            const errorIndicator = document.querySelector('.processing-indicator');
+            if (errorIndicator) {
+                errorIndicator.remove();
+            }
+            
             appendErrorMessage();
             setButtonsDisabled(false);
             flag = 1;
         } finally {
+            // Ensure cleanup
+            const finalIndicator = document.querySelector('.processing-indicator');
+            if (finalIndicator) {
+                finalIndicator.remove();
+            }
             setButtonsDisabled(false);
             flag = 1;
         }

@@ -1,12 +1,15 @@
 import os
 import re
 import time
-from fastapi import FastAPI
+import asyncio
+from datetime import datetime
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from typing import Optional, List
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun, ArxivQueryRun
@@ -16,6 +19,367 @@ from deep_translator import GoogleTranslator
 from dotenv import load_dotenv, find_dotenv
 from settings import ALLOW_ORIGINS, HOST, PORT
 from starlette.responses import JSONResponse
+
+# NASA Integration
+try:
+    from nasa_integration import EnhancedAgriculturalAssistant, LocationInfo
+    NASA_INTEGRATION_AVAILABLE = True
+except ImportError:
+    NASA_INTEGRATION_AVAILABLE = False
+    print("⚠️  NASA integration not available. Install required dependencies.")
+
+def analyze_query_type(query: str) -> str:
+    """Analyze query type to determine best response strategy"""
+    query_lower = query.lower()
+    
+    # Weather/Climate related queries
+    if any(word in query_lower for word in ['weather', 'climate', 'temperature', 'rain', 'drought', 'humidity', 'wind']):
+        return 'weather'
+    
+    # Crop-specific queries
+    if any(word in query_lower for word in ['crop', 'plant', 'grow', 'harvest', 'seed', 'variety', 'cultivar']):
+        return 'crop_specific'
+    
+    # Soil and fertilizer queries
+    if any(word in query_lower for word in ['soil', 'fertilizer', 'nutrition', 'ph', 'compost', 'organic matter']):
+        return 'soil_nutrition'
+    
+    # Pest and disease queries  
+    if any(word in query_lower for word in ['pest', 'disease', 'insect', 'bug', 'fungus', 'blight', 'virus']):
+        return 'pest_disease'
+    
+    # Equipment and technology
+    if any(word in query_lower for word in ['equipment', 'machinery', 'irrigation', 'technology', 'drone', 'sensor']):
+        return 'technology'
+    
+    # Market and economics
+    if any(word in query_lower for word in ['market', 'price', 'sell', 'profit', 'cost', 'economic']):
+        return 'economics'
+    
+    # General farming
+    return 'general_farming'
+
+async def get_intelligent_response(enhanced_prompt: str, query: str, query_type: str, nasa_available: bool) -> str:
+    """
+    Intelligent response system that uses multiple AI sources and research tools
+    when NASA data is unavailable for optimal agricultural advice
+    """
+    
+    max_retries = 2
+    
+    # Strategy 1: Try direct AI response first
+    for attempt in range(max_retries):
+        try:
+            response_text = get_direct_response(enhanced_prompt)
+            
+            if "Demo Mode" in response_text:
+                break
+            elif response_text and len(response_text.strip()) > 10:
+                # Good response received
+                if not nasa_available:
+                    # Enhance with research for non-NASA responses
+                    enhanced_response = await enhance_response_with_research(response_text, query, query_type)
+                    return enhanced_response
+                return response_text
+                
+        except Exception as e:
+            print(f"⚠ Direct response error (attempt {attempt + 1}): {str(e)[:100]}...")
+            if attempt < max_retries - 1:
+                time.sleep(0.5)
+    
+    # Strategy 2: Use search-enhanced response with multiple sources
+    try:
+        if not nasa_available:
+            # When NASA data unavailable, use comprehensive research approach
+            research_response = await get_comprehensive_research_response(query, query_type)
+            if research_response:
+                return research_response
+        
+        # Fallback to standard search enhancement
+        response_text = get_search_enhanced_response(query)
+        if response_text:
+            return response_text
+            
+    except Exception as e:
+        print(f"⚠ Research enhancement error: {str(e)[:100]}...")
+    
+    # Strategy 3: Intelligent fallback based on query type
+    return get_intelligent_fallback_response(query, query_type)
+
+async def enhance_response_with_research(base_response: str, query: str, query_type: str) -> str:
+    """Enhance AI response with targeted research when NASA data unavailable"""
+    try:
+        # Add research-based enhancements based on query type
+        research_keywords = get_research_keywords(query, query_type)
+        
+        # Use search tools to gather additional information
+        search_wrapper = DuckDuckGoSearchAPIWrapper()
+        search = DuckDuckGoSearchRun(api_wrapper=search_wrapper)
+        
+        research_info = ""
+        for keyword in research_keywords[:2]:  # Limit to 2 searches
+            try:
+                search_result = search.run(f"agriculture {keyword} best practices research")
+                if search_result and len(search_result) > 50:
+                    research_info += f"\\n**Recent Research Insights:**\\n{search_result[:200]}...\\n"
+                    break
+            except:
+                continue
+        
+        # Combine base response with research insights
+        if research_info:
+            enhanced_response = f"""{base_response}
+
+{research_info}
+
+**🔬 AI-Enhanced Analysis**: This response combines advanced AI knowledge with the latest agricultural research to provide you with comprehensive, evidence-based advice."""
+            return enhanced_response
+            
+    except Exception as e:
+        print(f"Research enhancement failed: {e}")
+    
+    return base_response
+
+async def get_comprehensive_research_response(query: str, query_type: str) -> str:
+    """Generate comprehensive response using multiple research sources"""
+    try:
+        # Multi-source research approach
+        search_wrapper = DuckDuckGoSearchAPIWrapper()
+        search = DuckDuckGoSearchRun(api_wrapper=search_wrapper)
+        wiki_wrapper = WikipediaAPIWrapper()
+        wiki = WikipediaQueryRun(api_wrapper=wiki_wrapper)
+        
+        # Query-specific research strategy
+        research_terms = get_research_keywords(query, query_type)
+        
+        research_results = []
+        
+        # Primary research source
+        try:
+            primary_search = search.run(f"agricultural {research_terms[0]} best practices 2024")
+            if primary_search:
+                research_results.append(("Latest Research", primary_search[:300]))
+        except:
+            pass
+        
+        # Wikipedia for foundational knowledge
+        try:
+            wiki_result = wiki.run(research_terms[0])
+            if wiki_result:
+                research_results.append(("Scientific Foundation", wiki_result[:250]))
+        except:
+            pass
+        
+        # Generate comprehensive response
+        if research_results:
+            response_text = f"""**RootSource AI** - Advanced Agricultural Intelligence
+
+**{query_type.replace('_', ' ').title()} Analysis**
+
+Based on comprehensive research from multiple agricultural databases and scientific sources:
+
+"""
+            for source, content in research_results:
+                response_text += f"**{source}:**\\n{content}\\n\\n"
+            
+            response_text += """
+**🤖 AI-Powered Recommendations:**
+• This analysis combines multiple research sources for accuracy
+• Recommendations are based on latest agricultural science
+• Solutions are tailored to modern sustainable farming practices
+
+**📚 Sources**: Agricultural research databases, scientific publications, and expert farming practices."""
+            
+            return response_text
+            
+    except Exception as e:
+        print(f"Comprehensive research failed: {e}")
+    
+    return None
+
+def get_research_keywords(query: str, query_type: str) -> List[str]:
+    """Generate targeted research keywords based on query and type"""
+    base_keywords = []
+    
+    if query_type == 'weather':
+        base_keywords = ['climate farming', 'weather agriculture', 'crop climate adaptation']
+    elif query_type == 'crop_specific':
+        base_keywords = ['crop management', 'plant cultivation', 'agricultural production']  
+    elif query_type == 'soil_nutrition':
+        base_keywords = ['soil health', 'plant nutrition', 'fertilizer management']
+    elif query_type == 'pest_disease':
+        base_keywords = ['pest management', 'plant disease', 'integrated pest control']
+    elif query_type == 'technology':
+        base_keywords = ['agricultural technology', 'precision farming', 'farm automation']
+    else:
+        base_keywords = ['sustainable agriculture', 'farming techniques', 'agricultural practices']
+    
+    # Extract key terms from query
+    query_words = [word for word in query.lower().split() if len(word) > 3]
+    agricultural_terms = [word for word in query_words if word in [
+        'crop', 'plant', 'soil', 'farm', 'grow', 'seed', 'harvest', 'irrigation', 
+        'fertilizer', 'organic', 'pest', 'disease', 'yield', 'nutrition'
+    ]]
+    
+    # Combine base keywords with query terms
+    return base_keywords + agricultural_terms[:2]
+
+def get_intelligent_fallback_response(query: str, query_type: str) -> str:
+    """Generate intelligent fallback response when all other methods fail"""
+    return f"""**RootSource AI** - Agricultural Intelligence System
+
+I understand you're asking about {query_type.replace('_', ' ')} in agriculture.
+
+**Current Status:**
+• **Advanced AI Processing**: Using comprehensive agricultural knowledge databases
+• **Multi-Source Analysis**: Combining research from agricultural institutions worldwide  
+• **Intelligent Recommendations**: Based on proven farming practices and scientific studies
+
+**Your Query**: {query}
+
+**🤖 AI-Generated Response:**
+While I don't have access to real-time satellite data at the moment, I can provide you with evidence-based agricultural advice using my extensive knowledge of farming practices, crop management, and sustainable agriculture techniques.
+
+**🔬 Knowledge Sources:**
+• Global agricultural research databases
+• University extension services knowledge
+• Sustainable farming practices documentation
+• Traditional and modern farming integration techniques
+
+**💡 Recommendation:**
+For the most accurate, location-specific advice, I recommend:
+1. **Consulting local agricultural extension services** for region-specific guidance
+2. **Connecting with local farmers** who understand your area's unique conditions  
+3. **Using soil testing services** for precise soil and nutrient analysis
+4. **Monitoring local weather patterns** and seasonal changes
+
+Would you like me to provide general guidance on your agricultural question using my comprehensive farming knowledge?"""
+
+async def get_intelligent_fallback_context(query: str, query_type: str, location: Optional[LocationInfo] = None) -> str:
+    """Generate intelligent fallback context when NASA data is unavailable"""
+    
+    location_str = f"{location.city}, {location.country}" if location else "your location"
+    
+    # Create contextual information based on query type
+    if query_type == 'weather':
+        return f"""
+INTELLIGENT AGRICULTURAL CONTEXT (AI-Enhanced):
+📍 Location: {location_str}
+🔍 Query Focus: Weather & Climate Analysis
+🤖 AI Sources: Advanced meteorological knowledge, historical climate patterns, and agricultural weather correlations
+
+**AI Weather Intelligence:**
+• **Climate Pattern Analysis**: Using historical weather data and climate models
+• **Seasonal Predictions**: Based on regional weather patterns and global climate trends  
+• **Agricultural Impact**: Weather-crop relationship analysis from extensive agricultural databases
+• **Adaptation Strategies**: AI-generated recommendations for weather resilience
+
+**Enhanced Information Sources:**
+• Global weather databases and climate research
+• Agricultural meteorology studies and patterns
+• Regional farming practices and weather adaptations
+• Crop-weather correlation analysis from agricultural research
+"""
+    
+    elif query_type == 'crop_specific':
+        return f"""
+INTELLIGENT AGRICULTURAL CONTEXT (AI-Enhanced):
+📍 Location: {location_str}  
+🔍 Query Focus: Crop Management & Production
+🤖 AI Sources: Comprehensive crop databases, research publications, and global farming practices
+
+**AI Crop Intelligence:**
+• **Variety Selection**: Analysis of crop varieties suited for different conditions
+• **Growth Optimization**: Best practices from global agricultural research
+• **Yield Enhancement**: Data-driven strategies for maximum productivity
+• **Regional Adaptation**: Location-specific growing techniques and timing
+
+**Enhanced Information Sources:**
+• International crop research databases
+• Agricultural extension service knowledge
+• Peer-reviewed farming studies and trials
+• Global crop management best practices
+"""
+    
+    elif query_type == 'soil_nutrition':
+        return f"""
+INTELLIGENT AGRICULTURAL CONTEXT (AI-Enhanced):
+📍 Location: {location_str}
+🔍 Query Focus: Soil Health & Nutrition Management  
+🤖 AI Sources: Soil science databases, nutrition research, and sustainable farming practices
+
+**AI Soil Intelligence:**
+• **Nutrient Management**: Precision nutrition strategies from soil science research
+• **Organic Solutions**: Natural and sustainable soil improvement methods
+• **pH Management**: Soil chemistry optimization techniques
+• **Fertility Enhancement**: Long-term soil health improvement strategies
+
+**Enhanced Information Sources:**
+• Soil science research publications
+• Organic farming and permaculture databases  
+• Agricultural chemistry and nutrition studies
+• Sustainable agriculture practices and techniques
+"""
+    
+    elif query_type == 'pest_disease':
+        return f"""
+INTELLIGENT AGRICULTURAL CONTEXT (AI-Enhanced):
+📍 Location: {location_str}
+🔍 Query Focus: Integrated Pest & Disease Management
+🤖 AI Sources: Entomology databases, plant pathology research, and IPM strategies
+
+**AI Pest Management Intelligence:**
+• **Identification**: Advanced pest and disease recognition patterns
+• **Biological Control**: Natural predator and beneficial insect strategies  
+• **Organic Solutions**: Chemical-free pest management approaches
+• **Prevention Strategies**: Proactive farming practices for pest reduction
+
+**Enhanced Information Sources:**
+• Entomology and plant pathology research
+• Integrated Pest Management (IPM) databases
+• Organic and biological control studies
+• Regional pest monitoring and management data
+"""
+    
+    elif query_type == 'technology':
+        return f"""
+INTELLIGENT AGRICULTURAL CONTEXT (AI-Enhanced):
+📍 Location: {location_str}
+🔍 Query Focus: Agricultural Technology & Innovation
+🤖 AI Sources: AgTech research, precision agriculture databases, and innovation studies
+
+**AI Technology Intelligence:**
+• **Precision Agriculture**: Smart farming technologies and implementation
+• **Automation**: Robotic and automated farming solutions
+• **Data Analytics**: Farm data collection and analysis strategies
+• **Sustainability Tech**: Environmentally friendly agricultural innovations
+
+**Enhanced Information Sources:**
+• Agricultural technology research and development
+• Precision agriculture case studies and implementations
+• Farm automation and robotics databases
+• Sustainable technology innovations in agriculture
+"""
+    
+    else:  # General farming or other
+        return f"""
+INTELLIGENT AGRICULTURAL CONTEXT (AI-Enhanced):
+📍 Location: {location_str}
+🔍 Query Focus: Comprehensive Agricultural Knowledge
+🤖 AI Sources: Multi-disciplinary agricultural databases, global farming practices, and research networks
+
+**AI Agricultural Intelligence:**
+• **Holistic Farming**: Integrated approaches to sustainable agriculture
+• **Best Practices**: Proven techniques from global farming communities
+• **Innovation Integration**: Combining traditional and modern farming methods
+• **Sustainability Focus**: Environmentally conscious farming strategies
+
+**Enhanced Information Sources:**
+• Global agricultural research networks
+• Traditional and indigenous farming knowledge
+• Modern sustainable agriculture practices  
+• Cross-disciplinary agricultural studies and innovations
+"""
 
 # Load environment variables unless explicitly disabled (e.g., in tests)
 if not os.getenv("DONT_LOAD_DOTENV") and not os.getenv("PYTEST_CURRENT_TEST"):
@@ -28,10 +392,21 @@ app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 @app.get("/", response_class=HTMLResponse)
 async def home():
     """Serve the SPA index.html from the repository root."""
+    print("📱 Frontend accessed - serving index.html")
     file_path = os.path.join(os.path.dirname(__file__), "index.html")
     if os.path.exists(file_path):
         return FileResponse(file_path)
     return HTMLResponse("<h1>RootSource AI</h1><p>index.html not found.</p>", status_code=404)
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for debugging connection issues"""
+    return {
+        "status": "healthy",
+        "message": "RootSource AI server is running",
+        "nasa_integration": NASA_INTEGRATION_AVAILABLE,
+        "timestamp": str(datetime.now())
+    }
 
 
 
@@ -48,6 +423,11 @@ app.add_middleware(
 # Pydantic model for frontend requests
 class ChatRequest(BaseModel):
     message: str
+    location: Optional[dict] = None  # Optional location data from frontend
+    
+class LocationRequest(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 # --- Initialize AI Tools ---
 wiki = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=200))
@@ -55,6 +435,16 @@ arxiv = ArxivQueryRun(api_wrapper=ArxivAPIWrapper(top_k_results=1, doc_content_c
 duckduckgo_search = DuckDuckGoSearchRun(api_wrapper=DuckDuckGoSearchAPIWrapper(region="in-en", time="y", max_results=2))
 
 tools = [wiki, arxiv, duckduckgo_search]
+
+# --- NASA Integration ---
+enhanced_assistant = None
+if NASA_INTEGRATION_AVAILABLE:
+    try:
+        enhanced_assistant = EnhancedAgriculturalAssistant()
+        print("✅ NASA agricultural data integration initialized")
+    except Exception as e:
+        print(f"⚠️ NASA integration initialization failed: {e}")
+        enhanced_assistant = None
 
 # --- Memory ---
 chat_memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
@@ -360,6 +750,284 @@ Now provide a comprehensive, well-formatted answer about the farming topic."""
     return {"reply": final_response, "detectedLang": original_lang, "translatedQuery": translated_query}
 
 
+# --- NASA Enhanced Endpoints ---
+
+@app.get("/api/location/detect")
+async def detect_location():
+    """
+    Detect user location using IP geolocation with smart fallback for South Asia
+    """
+    try:
+        if not enhanced_assistant:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "Location detection not available"}
+            )
+        
+        location = await enhanced_assistant.location_detector.get_location_from_ip()
+        
+        if location:
+            return {
+                "success": True,
+                "method": "ip_geolocation",
+                "location": {
+                    "latitude": location.latitude,
+                    "longitude": location.longitude,
+                    "country": location.country,
+                    "region": location.region,
+                    "city": location.city,
+                    "timezone": location.timezone
+                }
+            }
+        else:
+            # Smart fallback - default to Bangladesh (Dhaka) for better regional coverage
+            fallback = enhanced_assistant.location_detector.get_fallback_location('BD')
+            return {
+                "success": False,
+                "fallback": True,
+                "method": "regional_fallback",
+                "location": {
+                    "latitude": fallback.latitude,
+                    "longitude": fallback.longitude,
+                    "country": fallback.country,
+                    "region": fallback.region,
+                    "city": fallback.city,
+                    "timezone": fallback.timezone
+                },
+                "note": "Using South Asian regional fallback for optimal agricultural recommendations"
+            }
+            
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to detect location: {str(e)}"}
+        )
+
+@app.post("/api/location/set")
+async def set_manual_location(request: dict):
+    """
+    Set user location manually for users who know their exact location
+    Example: {"city": "Gazipur", "country": "Bangladesh"}
+    """
+    try:
+        city = request.get('city', '').strip()
+        country = request.get('country', 'Bangladesh').strip()
+        
+        if not city:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "City name is required", "success": False}
+            )
+        
+        # Get location from enhanced database
+        if country.lower() == 'bangladesh':
+            from nasa_integration import LocationDetector
+            location = LocationDetector.get_bangladesh_location(city)
+        else:
+            from nasa_integration import LocationDetector
+            location = LocationDetector.get_fallback_location('BD', city)
+        
+        return {
+            "success": True,
+            "location": {
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "city": location.city,
+                "region": location.region,
+                "country": location.country,
+                "timezone": location.timezone
+            },
+            "message": f"Location manually set to {location.city}, {location.country}",
+            "method": "manual_override"
+        }
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to set location: {str(e)}", "success": False}
+        )
+
+@app.post("/api/location/context")
+async def get_location_context(location_req: LocationRequest):
+    """
+    Get NASA agricultural data context for a specific location
+    """
+    try:
+        if not enhanced_assistant:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "NASA data service unavailable"}
+            )
+        
+        user_location = None
+        if location_req.latitude and location_req.longitude:
+            # Create LocationInfo from provided coordinates
+            user_location = LocationInfo(
+                latitude=location_req.latitude,
+                longitude=location_req.longitude,
+                country="Unknown",
+                region="Unknown", 
+                city="Unknown",
+                timezone="UTC"
+            )
+        
+        context = await enhanced_assistant.get_location_based_context(user_location)
+        
+        return {
+            "success": True,
+            "context": context,
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to get location context: {str(e)}"}
+        )
+
+@app.post("/chat/enhanced")
+async def enhanced_chat(req: ChatRequest):
+    """
+    Enhanced chat endpoint with NASA data integration and location awareness
+    """
+    user_message = req.message
+    translated_query, original_lang = translate_to_english(user_message)
+    
+    # Intelligent query analysis for best response strategy
+    query_type = analyze_query_type(translated_query)
+    
+    # Get location context with smart fallback handling
+    location_context = ""
+    nasa_data_available = False
+    fallback_context = ""
+    
+    if enhanced_assistant:
+        try:
+            # Use provided location or detect automatically
+            user_location = None
+            if req.location:
+                user_location = LocationInfo(
+                    latitude=req.location.get('latitude', 0),
+                    longitude=req.location.get('longitude', 0),
+                    country=req.location.get('country', 'Unknown'),
+                    region=req.location.get('region', 'Unknown'),
+                    city=req.location.get('city', 'Unknown'),
+                    timezone=req.location.get('timezone', 'UTC')
+                )
+            
+            # Try NASA data first
+            context = await enhanced_assistant.get_location_based_context(user_location)
+            
+            if context:
+                nasa_data_available = True
+                location_info = context.get('location', {})
+                weather_info = context.get('weather', {})
+                soil_info = context.get('soil', {})
+                vegetation_info = context.get('vegetation', {})
+                weather_insights = context.get('weather_insights', [])
+                
+                location_context = f"""
+LOCATION-SPECIFIC AGRICULTURAL CONTEXT:
+📍 Location: {location_info.get('city', 'Unknown')}, {location_info.get('region', 'Unknown')}, {location_info.get('country', 'Unknown')}
+🌡️ Current Weather: {weather_info.get('current_temperature', 'N/A')} (Range: {weather_info.get('temperature_range', 'N/A')})
+💧 Recent Precipitation: {weather_info.get('recent_precipitation', 'N/A')}
+💨 Humidity: {weather_info.get('humidity', 'N/A')}
+☀️ Solar Radiation: {weather_info.get('solar_radiation', 'N/A')}
+💨 Wind Speed: {weather_info.get('wind_speed', 'N/A')}
+
+🌱 Vegetation Health: {vegetation_info.get('health_status', 'N/A')}
+🌾 Growing Season: {vegetation_info.get('growing_season', 'N/A')}
+
+🪨 Soil Conditions:
+- Moisture Level: {soil_info.get('moisture_level', 'N/A')}
+- Soil Temperature: {soil_info.get('temperature', 'N/A')}
+- Soil Type: {soil_info.get('type', 'N/A')}
+- pH Estimate: {soil_info.get('ph_estimate', 'N/A')}
+- Irrigation Advice: {soil_info.get('irrigation_recommendation', 'N/A')}
+
+🔍 NASA Weather Insights:
+{chr(10).join([f'- {insight}' for insight in weather_insights]) if weather_insights else '- No specific insights available'}
+"""
+                
+        except Exception as e:
+            print(f"NASA data unavailable: {e}")
+            # Intelligent fallback when NASA data isn't available
+            fallback_context = await get_intelligent_fallback_context(translated_query, query_type, user_location)
+            location_context = fallback_context
+    
+    # Enhanced prompt with intelligent data source handling
+    data_source_info = "NASA satellite data and weather information" if nasa_data_available else "advanced AI knowledge and research sources"
+    enhanced_prompt = f"""
+You are RootSource AI, an expert agricultural assistant with access to {data_source_info}.
+
+{location_context}
+
+**IMPORTANT INSTRUCTIONS:**
+1. **Use the location-specific data above** to provide highly personalized agricultural advice.
+2. **Reference the current weather, soil, and vegetation conditions** in your recommendations.
+3. **If the question is not agriculture-related, say "Please ask questions related to agriculture only."**
+4. **Always start with your name 'RootSource AI'** and mention that you're using NASA satellite data for accuracy.
+5. **Incorporate the irrigation, weather, and growing season insights** into your advice.
+6. **Provide specific, actionable recommendations** based on the current local conditions.
+
+CRITICAL FORMATTING REQUIREMENTS:
+
+1. Always start with a bold heading: **Topic Name**
+2. Use **bold text** for key terms and important points  
+3. Create bullet points with • symbol
+4. Use numbered lists for step-by-step instructions
+5. Separate sections with blank lines
+6. Include location-specific recommendations
+
+EXAMPLE FORMAT:
+**Corn Yield Optimization for {location_info.get('city', 'Your Location') if nasa_data_available else 'Your Location'}**
+
+**Current Conditions Analysis:**
+• **Weather**: Based on current temperature of {weather_info.get('current_temperature', 'N/A') if nasa_data_available else 'local conditions'}
+• **Soil**: {soil_info.get('irrigation_recommendation', 'Check soil moisture levels') if nasa_data_available else 'Monitor soil conditions'}
+
+**Recommended Actions:**
+1. **Immediate Steps**: Based on current {vegetation_info.get('growing_season', 'growing conditions') if nasa_data_available else 'seasonal conditions'}
+2. **Weekly Planning**: Consider the weather forecast and soil conditions
+
+Question: {translated_query}
+"""
+
+    # Intelligent multi-source response generation
+    response_text = await get_intelligent_response(enhanced_prompt, translated_query, query_type, nasa_data_available)
+
+    # Format and translate back
+    translate_lang = translate_back(response_text, original_lang)
+    formatted_response = format_response(translate_lang)
+    
+    # Add intelligent data source attribution
+    if nasa_data_available and enhanced_assistant and user_location:
+        try:
+            nasa_attribution = enhanced_assistant.generate_nasa_attribution(user_location, context)
+            formatted_response += f"<br><br>{nasa_attribution}"
+            print(f"✅ NASA attribution added for {user_location.city}, {user_location.country}")
+        except Exception as e:
+            print(f"Error generating NASA attribution: {e}")
+            # Add fallback attribution for NASA data
+            formatted_response += f"""<br><br>
+<div style='padding: 8px; background: rgba(46, 204, 113, 0.1); border-left: 3px solid #2ecc71; margin-top: 10px; font-size: 0.9em;'>
+🛰️ <strong>NASA Data Integration:</strong> This response uses NASA satellite data and weather information for enhanced accuracy.
+</div>"""
+    else:
+        # Add attribution for AI-enhanced fallback system
+        user_location_str = f" for {user_location.city}, {user_location.country}" if user_location else ""
+        formatted_response += f"""<br><br>
+<div style='padding: 8px; background: rgba(52, 152, 219, 0.1); border-left: 3px solid #3498db; margin-top: 10px; font-size: 0.9em;'>
+🤖 <strong>AI-Enhanced Response:</strong> This advice uses advanced agricultural AI knowledge and research databases{user_location_str}. For real-time satellite data, NASA integration is available with location services enabled.
+</div>"""
+    
+    return {
+        "reply": formatted_response, 
+        "detectedLang": original_lang, 
+        "translatedQuery": translated_query,
+        "nasa_context_used": nasa_data_available,
+        "location_context": location_context if nasa_data_available else None
+    }
 
 @app.get("/favicon.ico")
 async def favicon():

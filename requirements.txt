@@ -12,5 +12,10 @@ python-dotenv==1.0.1
 requests>=2.31.0,<3.0.0
 gunicorn==22.0.0
 
+# NASA Data Integration & Location Services
+aiohttp==3.12.15
+asyncio
+dataclasses-json>=0.6.7
+
 # Dev/Test
 pytest==8.3.2

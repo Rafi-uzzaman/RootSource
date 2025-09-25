@@ -1,5 +1,11 @@
 var isVoice = 0;
 var isVoiceConversation = false; // Track if current conversation was initiated by voice
+
+// NASA Data Integration & Location Variables
+var userLocation = null;
+var nasaDataEnabled = false;
+var locationDetectionAttempted = false;
+
 const DEFAULT_VOICE_NAME = 'Flo-en-US';
 const PREFERRED_VOICE_ALIASES = [
     'Flo-en-US',
@@ -10,6 +16,136 @@ const PREFERRED_VOICE_ALIASES = [
 ];
 const VOICE_STORAGE_KEY = 'preferredVoiceName';
 const LANG_STORAGE_KEY = 'preferredLangCode';
+
+// Location Detection Functions
+async function detectUserLocation() {
+    if (locationDetectionAttempted) return userLocation;
+    
+    locationDetectionAttempted = true;
+    
+    try {
+        // Try browser geolocation first (more accurate)
+        if (navigator.geolocation) {
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        userLocation = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            source: 'browser'
+                        };
+                        
+                        // Get additional location context from our API
+                        try {
+                            const contextResponse = await fetch('/api/location/context', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    latitude: userLocation.latitude,
+                                    longitude: userLocation.longitude
+                                })
+                            });
+                            
+                            if (contextResponse.ok) {
+                                const contextData = await contextResponse.json();
+                                userLocation.context = contextData.context;
+                                nasaDataEnabled = true;
+                                updateLocationIndicator(userLocation);
+                                console.log('🛰️ NASA agricultural data loaded for location:', userLocation);
+                            }
+                        } catch (e) {
+                            console.log('⚠️ NASA context unavailable:', e.message);
+                        }
+                        
+                        resolve(userLocation);
+                    },
+                    async () => {
+                        // Fallback to IP-based detection
+                        await detectLocationByIP();
+                        resolve(userLocation);
+                    },
+                    { timeout: 10000 }
+                );
+            });
+        } else {
+            // Browser doesn't support geolocation
+            await detectLocationByIP();
+        }
+    } catch (error) {
+        console.log('Location detection failed:', error);
+        await detectLocationByIP();
+    }
+    
+    return userLocation;
+}
+
+async function detectLocationByIP() {
+    try {
+        const response = await fetch('/api/location/detect');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success || data.fallback) {
+                userLocation = {
+                    ...data.location,
+                    source: data.fallback ? 'fallback' : 'ip'
+                };
+                
+                // Get NASA context for IP-detected location
+                try {
+                    const contextResponse = await fetch('/api/location/context', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            latitude: userLocation.latitude,
+                            longitude: userLocation.longitude
+                        })
+                    });
+                    
+                    if (contextResponse.ok) {
+                        const contextData = await contextResponse.json();
+                        userLocation.context = contextData.context;
+                        nasaDataEnabled = true;
+                        console.log('🛰️ NASA data loaded via IP location:', userLocation);
+                    }
+                } catch (e) {
+                    console.log('⚠️ NASA context unavailable:', e.message);
+                }
+                
+                updateLocationIndicator(userLocation);
+            }
+        }
+    } catch (error) {
+        console.log('IP-based location detection failed:', error);
+    }
+}
+
+function updateLocationIndicator(location) {
+    // Update UI to show location and NASA data status
+    const indicator = document.getElementById('location-indicator');
+    if (indicator) {
+        let locationText = '';
+        let statusClass = '';
+        
+        if (location) {
+            locationText = `📍 ${location.city || 'Unknown'}, ${location.country || 'Unknown'}`;
+            statusClass = nasaDataEnabled ? 'nasa-enabled' : 'location-only';
+            
+            if (nasaDataEnabled) {
+                locationText += ' 🛰️';
+            }
+        } else {
+            locationText = '🌍 Global Mode';
+            statusClass = 'global-mode';
+        }
+        
+        indicator.textContent = locationText;
+        indicator.className = `location-indicator ${statusClass}`;
+        indicator.title = nasaDataEnabled ? 
+            'Location detected - NASA agricultural data available' :
+            location ? 'Location detected - Limited data mode' : 'Global mode - No location data';
+    }
+}
 
 function stopSpeech() {
     const speechEngine = window.speechSynthesis;
