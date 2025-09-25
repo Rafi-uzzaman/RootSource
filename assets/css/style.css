@@ -22,17 +22,13 @@
 }
 
 body {
-    font-family: var(--font-family);
+    margin: 0;
+    padding: 0;
+    background: var(--bg-gradient);
     color: var(--text-color);
-    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url("https://assets.science.nasa.gov/dynamicimage/assets/science/esd/multimedia/images-of-change/FestiveFields_NC_20141019_after_2048px-95.jpg") no-repeat center center fixed;
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    font-family: 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', Tahoma, Geneva, Verdana, sans-serif;
     min-height: 100vh;
-    position: relative;
+    overflow-x: hidden;
 }
 
 .overlay {
@@ -403,6 +399,7 @@ body {
     transform: translateX(-50%);
     width: 90%;
     max-width: 600px;
+    z-index: 100;
     z-index: 5;
     
 }
@@ -455,6 +452,194 @@ body {
 .main-input-container button svg {
     height: 20px;
     width: 20px;
+}
+
+/* Location & NASA Data Indicator Styles */
+/* Clean Location Display Styles */
+.location-status-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.location-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px 16px;
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.location-display:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.location-text {
+    font-size: 0.9em;
+    font-weight: 500;
+    color: #e0e0e0;
+    transition: color 0.3s ease;
+}
+
+.location-text.nasa-enabled {
+    color: #2ecc71;
+    text-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
+}
+
+.location-text.location-detected {
+    color: #3498db;
+}
+
+.change-location-btn {
+    background: none;
+    border: none;
+    color: #bdc3c7;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.change-location-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ecf0f1;
+    transform: scale(1.1);
+}
+
+.change-location-btn.nasa-enabled {
+    color: #2ecc71;
+}
+
+.change-location-btn.location-detected {
+    color: #3498db;
+}
+
+/* Clean Location Picker Dropdown */
+.location-picker {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    background: var(--container-bg);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    z-index: 1000;
+    min-width: 250px;
+    overflow: hidden;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.location-picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(46, 204, 113, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #2ecc71;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #95a5a6;
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.close-btn:hover {
+    color: #e74c3c;
+}
+
+.location-options {
+    padding: 8px 0;
+}
+
+.location-option {
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 0.9em;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.location-option:hover {
+    background: rgba(46, 204, 113, 0.1);
+    color: #2ecc71;
+}
+
+.location-option:active {
+    background: rgba(46, 204, 113, 0.2);
+}
+
+/* Clean notification animations */
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+}
+
+/* Click outside to close location picker */
+.location-status-container {
+    position: relative;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

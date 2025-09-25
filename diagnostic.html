@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RootSource AI - Connection Test</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2ecc71;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border-left: 4px solid #3498db;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .success { background: #27ae60; color: white; }
+        .error { background: #e74c3c; color: white; }
+        .warning { background: #f39c12; color: white; }
+        .loading { background: #3498db; color: white; }
+        button {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #27ae60;
+        }
+        .log {
+            background: #2c3e50;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #34495e;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group input {
+            width: 60%;
+            padding: 10px;
+            border: 1px solid #34495e;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 RootSource AI Connection Diagnostics</h1>
+        
+        <div class="test-section">
+            <h3>📡 Server Connectivity Tests</h3>
+            <div>
+                <strong>Health Check:</strong>
+                <span id="health-status" class="status loading">Testing...</span>
+            </div>
+            <div>
+                <strong>Main Page:</strong>
+                <span id="main-status" class="status loading">Testing...</span>
+            </div>
+            <div>
+                <strong>Chat Endpoint:</strong>
+                <span id="chat-status" class="status loading">Testing...</span>
+            </div>
+            <div>
+                <strong>Enhanced Chat:</strong>
+                <span id="enhanced-status" class="status loading">Testing...</span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🤖 AI System Test</h3>
+            <div class="input-group">
+                <input type="text" id="test-question" placeholder="Enter a farming question..." 
+                       value="How to grow tomatoes in Bangladesh?">
+                <button onclick="testAIResponse()">Test AI Response</button>
+            </div>
+            <div>
+                <strong>Response Status:</strong>
+                <span id="ai-status" class="status">Ready</span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Connection Log</h3>
+            <div id="log" class="log"></div>
+            <button onclick="clearLog()">Clear Log</button>
+            <button onclick="runFullDiagnostic()">Run Full Diagnostic</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 Quick Actions</h3>
+            <button onclick="openMainApp()">Open Main Application</button>
+            <button onclick="testLocationServices()">Test Location Services</button>
+            <button onclick="downloadReport()">Download Diagnostic Report</button>
+        </div>
+    </div>
+
+    <script>
+        let diagnosticResults = {};
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus(elementId, status, message) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${status}`;
+            element.textContent = message;
+        }
+
+        async function testEndpoint(url, name) {
+            try {
+                log(`🔍 Testing ${name}: ${url}`);
+                const response = await fetch(url, { 
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    log(`✅ ${name} - SUCCESS (${response.status})`);
+                    return { success: true, status: response.status, url };
+                } else {
+                    log(`❌ ${name} - FAILED (${response.status} ${response.statusText})`);
+                    return { success: false, status: response.status, error: response.statusText, url };
+                }
+            } catch (error) {
+                log(`❌ ${name} - ERROR: ${error.message}`);
+                return { success: false, error: error.message, url };
+            }
+        }
+
+        async function testHealthCheck() {
+            const result = await testEndpoint('/health', 'Health Check');
+            updateStatus('health-status', 
+                result.success ? 'success' : 'error',
+                result.success ? 'Healthy' : 'Failed'
+            );
+            diagnosticResults.health = result;
+            return result;
+        }
+
+        async function testMainPage() {
+            const result = await testEndpoint('/', 'Main Page');
+            updateStatus('main-status',
+                result.success ? 'success' : 'error', 
+                result.success ? 'Available' : 'Failed'
+            );
+            diagnosticResults.main = result;
+            return result;
+        }
+
+        async function testChatEndpoint() {
+            try {
+                log('🔍 Testing Chat endpoint with sample message...');
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: 'test', voice: false })
+                });
+                
+                const success = response.ok;
+                updateStatus('chat-status',
+                    success ? 'success' : 'error',
+                    success ? 'Working' : 'Failed'
+                );
+                
+                if (success) {
+                    log(`✅ Chat endpoint - SUCCESS (${response.status})`);
+                } else {
+                    log(`❌ Chat endpoint - FAILED (${response.status})`);
+                }
+                
+                diagnosticResults.chat = { success, status: response.status };
+                return { success, status: response.status };
+            } catch (error) {
+                log(`❌ Chat endpoint - ERROR: ${error.message}`);
+                updateStatus('chat-status', 'error', 'Error');
+                diagnosticResults.chat = { success: false, error: error.message };
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testEnhancedChat() {
+            try {
+                log('🔍 Testing Enhanced Chat with NASA integration...');
+                const response = await fetch('/chat/enhanced', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: 'test farming question',
+                        location: {
+                            city: 'Gazipur',
+                            country: 'Bangladesh',
+                            latitude: 23.9999,
+                            longitude: 90.4203
+                        }
+                    })
+                });
+                
+                const success = response.ok;
+                updateStatus('enhanced-status',
+                    success ? 'success' : 'error',
+                    success ? 'NASA Ready' : 'Failed'
+                );
+                
+                if (success) {
+                    log(`✅ Enhanced Chat - SUCCESS (${response.status})`);
+                } else {
+                    log(`❌ Enhanced Chat - FAILED (${response.status})`);
+                }
+                
+                diagnosticResults.enhanced = { success, status: response.status };
+                return { success, status: response.status };
+            } catch (error) {
+                log(`❌ Enhanced Chat - ERROR: ${error.message}`);
+                updateStatus('enhanced-status', 'error', 'Error');
+                diagnosticResults.enhanced = { success: false, error: error.message };
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testAIResponse() {
+            const question = document.getElementById('test-question').value;
+            if (!question.trim()) return;
+            
+            updateStatus('ai-status', 'loading', 'Processing...');
+            log(`🤖 Testing AI with question: "${question}"`);
+            
+            try {
+                const response = await fetch('/chat/enhanced', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: question,
+                        location: {
+                            city: 'Gazipur',
+                            country: 'Bangladesh',
+                            latitude: 23.9999,
+                            longitude: 90.4203
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('ai-status', 'success', 'Response Received');
+                    log(`✅ AI Response received (${data.reply.length} chars)`);
+                    log(`📊 NASA Context: ${data.nasa_context_used ? 'Used' : 'Not used'}`);
+                } else {
+                    updateStatus('ai-status', 'error', 'Failed');
+                    log(`❌ AI Response failed (${response.status})`);
+                }
+            } catch (error) {
+                updateStatus('ai-status', 'error', 'Error');
+                log(`❌ AI Response error: ${error.message}`);
+            }
+        }
+
+        async function testLocationServices() {
+            log('📍 Testing location detection services...');
+            try {
+                const response = await fetch('/api/location/detect');
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Location detected: ${data.city}, ${data.country}`);
+                } else {
+                    log(`❌ Location detection failed (${response.status})`);
+                }
+            } catch (error) {
+                log(`❌ Location service error: ${error.message}`);
+            }
+        }
+
+        async function runFullDiagnostic() {
+            log('🚀 Running comprehensive diagnostic...');
+            log('=' * 50);
+            
+            await testHealthCheck();
+            await testMainPage();
+            await testChatEndpoint();
+            await testEnhancedChat();
+            
+            log('📊 Diagnostic Summary:');
+            log(`Health: ${diagnosticResults.health?.success ? 'OK' : 'FAIL'}`);
+            log(`Main Page: ${diagnosticResults.main?.success ? 'OK' : 'FAIL'}`);
+            log(`Chat: ${diagnosticResults.chat?.success ? 'OK' : 'FAIL'}`);
+            log(`Enhanced Chat: ${diagnosticResults.enhanced?.success ? 'OK' : 'FAIL'}`);
+            
+            const allWorking = Object.values(diagnosticResults).every(r => r.success);
+            log(`🎯 Overall Status: ${allWorking ? 'ALL SYSTEMS OPERATIONAL' : 'ISSUES DETECTED'}`);
+        }
+
+        function openMainApp() {
+            window.open('/', '_blank');
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function downloadReport() {
+            const logContent = document.getElementById('log').textContent;
+            const report = `RootSource AI Diagnostic Report\n${'='.repeat(50)}\n\n${logContent}`;
+            
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rootsource-ai-diagnostic.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Auto-run diagnostics on page load
+        window.addEventListener('load', () => {
+            log('🔧 RootSource AI Connection Diagnostics Started');
+            log(`🌐 Current URL: ${window.location.href}`);
+            log(`📡 Server Base: ${window.location.origin}`);
+            setTimeout(runFullDiagnostic, 1000);
+        });
+    </script>
+</body>
+</html>
