@@ -140,7 +140,7 @@ graph TD
 
 | 🎯 **Stage** | ⚡ **Process** | 🛠️ **Technology** | ⏱️ **Duration** |
 |:-------------|:---------------|:------------------|:----------------|
-| **�️ Input Capture** | Voice/Text recognition | Web Speech API / Form Input | ~0.5s |
+| **📲 Input Capture** | Voice/Text recognition | Web Speech API / Form Input | ~0.5s |
 | **🌐 Language Processing** | Detection & translation | LangDetect + Google Translate | ~0.2s |
 | **🤖 AI Analysis** | Context understanding | Groq LLaMA 3.1 8B | ~1-2s |
 | **🔍 Research Phase** | Multi-source data gathering | Wikipedia + ArXiv + DuckDuckGo | ~2-3s |
@@ -801,7 +801,7 @@ RootSource AI is equipped with comprehensive **Open Graph** and **Twitter Card**
 
 ---
 
-## �📞 **Support & Community**
+## 📞 **Support & Community**
 
 <div align="center">
 
@@ -815,7 +815,7 @@ RootSource AI is equipped with comprehensive **Open Graph** and **Twitter Card**
 
 - 🆘 **Issues & Bugs**: [GitHub Issues](https://github.com/Rafi-uzzaman/RootSource/issues)
 - 💬 **General Discussion**: [GitHub Discussions](https://github.com/Rafi-uzzaman/RootSource/discussions)
-- 📧 **Direct Contact**: [rootsource.ai@gmail.com](mailto:rafiuzzaman.bluedot@gmail.com)
+- 📧 **Direct Contact**: [rafiuzzaman.bluedot@gmail.com](mailto:rafiuzzaman.bluedot@gmail.com)
 - 📚 **Documentation**: [Wiki](https://github.com/Rafi-uzzaman/RootSource/wiki)
 
 ---
