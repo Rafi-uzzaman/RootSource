@@ -20,6 +20,7 @@ from deep_translator import GoogleTranslator
 from dotenv import load_dotenv, find_dotenv
 from settings import ALLOW_ORIGINS, HOST, PORT
 from starlette.responses import JSONResponse
+import math
 
 # Load environment variables unless explicitly disabled (e.g., in tests)
 if not os.getenv("DONT_LOAD_DOTENV") and not os.getenv("PYTEST_CURRENT_TEST"):
@@ -596,9 +597,92 @@ def trim_chat_memory(max_length=5):
 async def chat(req: ChatRequest, request: Request):
     user_message = req.message
     translated_query, original_lang = translate_to_english(user_message)
-    
-    # Detect user location for NASA data personalization
     lat, lon, location_name = await detect_user_location(request)
+
+    # Helper: detect meta question about NASA datasets/capabilities
+    def is_nasa_capability_question(q: str) -> bool:
+        ql = q.lower()
+        triggers = [
+            "which nasa dataset", "what nasa dataset", "which datasets do you use",
+            "nasa data will you use", "what nasa data", "explain nasa dataset", "nasa sources"
+        ]
+        return any(t in ql for t in triggers)
+
+    if is_nasa_capability_question(translated_query):
+        # Build a structured explanation using current relevance logic
+        lines = ["**RootSource AI** - NASA Dataset Capability Overview", ""]
+        lines.append("**Integrated Datasets:**")
+        lines.append("• **POWER**: Climate & weather (temperature, rainfall, humidity, solar radiation)")
+        lines.append("• **MODIS**: Vegetation vigor (NDVI, EVI, leaf area index)")
+        lines.append("• **LANDSAT**: Field-scale crop condition & water stress indicators")
+        lines.append("• **GLDAS**: Soil moisture, evapotranspiration, hydrologic balance")
+        lines.append("• **GRACE**: Groundwater and total water storage trends")
+        lines.append("")
+        lines.append("**How Selection Works:**")
+        lines.append("• I parse your question for domain keywords (e.g., 'soil moisture', 'irrigation', 'crop health').")
+        lines.append("• Each keyword maps to one or more datasets (internal relevance table).")
+        lines.append("• If no specific keyword but the question is agricultural, I may use all datasets for a comprehensive analysis.")
+        lines.append("")
+        lines.append("**Examples:**")
+        lines.append("• 'Soil moisture status?' → GLDAS (+ POWER for recent rain)")
+        lines.append("• 'Should I irrigate?' → GLDAS + POWER (+ GRACE if long-term water context inferred)")
+        lines.append("• 'Crop health this week?' → MODIS + LANDSAT (+ POWER for weather stress context)")
+        lines.append("• 'Groundwater situation?' → GRACE (+ GLDAS if soil layer context needed)")
+        lines.append("")
+        lines.append("**Attribution Policy:** A single final line lists only the NASA datasets actually used in the answer.")
+        lines.append("**Location Personalization:** Your approximate location (IP-based) refines climate, soil moisture, and groundwater context.")
+        lines.append("")
+        lines.append("Ask a specific farming question now and I'll automatically select the optimal datasets.")
+        response_text = "\n".join(lines)
+        translate_lang = translate_back(response_text, original_lang)
+        formatted_response = format_response(translate_lang)
+        # No datasets were actually queried here, so no attribution line
+        return {
+            "reply": formatted_response,
+            "detectedLang": original_lang,
+            "translatedQuery": translated_query,
+            "userLocation": location_name if location_name else "Location not detected",
+            "nasaDataUsed": []
+        }
+
+    # NEW: Early forecast fallback when no GROQ key
+    no_llm = not os.getenv("GROQ_API_KEY")
+    if no_llm and lat is not None and lon is not None and is_forecast_query(translated_query):
+        # Attempt Open-Meteo + optional recent POWER snapshot (reuse existing POWER fetch with shorter window)
+        open_meteo = await fetch_open_meteo_forecast(lat, lon, 5)
+        power_recent = await get_nasa_power_data(lat, lon, days_back=7) if 'get_nasa_power_data' in globals() else None
+        parts = ["**RootSource AI** - Weather & Farming Outlook"]
+        if open_meteo:
+            parts.append(build_forecast_summary(open_meteo))
+        if power_recent and power_recent.get('success'):
+            parts.append("**Recent Climate (NASA POWER 7-day)**")
+            pdata = power_recent.get('data', {}).get('properties', {}).get('parameter', {})
+            if 'T2M' in pdata:
+                temps = list(pdata['T2M'].values())
+                if temps:
+                    parts.append(f"• Avg Temp (7d): {sum(temps)/len(temps):.1f}°C")
+            if 'PRECTOTCORR' in pdata:
+                pr = list(pdata['PRECTOTCORR'].values())
+                if pr:
+                    parts.append(f"• Total Rain (7d): {sum(pr):.1f}mm")
+        # Basic agronomic guidance
+        parts.append("**Agronomic Guidance**")
+        parts.append("• Use mulching to stabilize soil moisture if rainfall is low.")
+        parts.append("• Adjust irrigation scheduling based on cumulative forecast rainfall.")
+        parts.append("• Monitor for fungal disease if humidity and rainfall are elevated.")
+        used_datasets = ["POWER"] if (power_recent and power_recent.get('success')) else []
+        response_text = "\n".join(parts)
+        translate_lang = translate_back(response_text, original_lang)
+        formatted_response = format_response(translate_lang)
+        if used_datasets:
+            formatted_response += format_response(f"\n\n**NASA dataset(s) used:** {', '.join(used_datasets)}")
+        return {
+            "reply": formatted_response,
+            "detectedLang": original_lang,
+            "translatedQuery": translated_query,
+            "userLocation": location_name if location_name else "Location not detected",
+            "nasaDataUsed": used_datasets
+        }
 
     # Quick response for greetings
     if any(greeting in translated_query.lower() for greeting in ['hi', 'hello', 'hey', 'greetings']):
