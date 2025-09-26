@@ -11,6 +11,8 @@ deep-translator==1.11.4
 python-dotenv==1.0.1
 requests>=2.31.0,<3.0.0
 gunicorn==22.0.0
+geoip2==4.8.0
+httpx>=0.25.0
 
 # Dev/Test
 pytest==8.3.2
