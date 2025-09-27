@@ -1229,15 +1229,19 @@ def load_llm():
 # --- Translation ---
 def translate_to_english(text):
     """Translate text to English with robust language detection"""
+    print(f"🔍 TRANSLATE_TO_ENGLISH CALLED: text='{text[:100]}...'")
+    
     try:
         if not text or not text.strip():
+            print("❌ TRANSLATE_TO_ENGLISH: Empty text")
             return text, "unknown"
         
         # Detect language
         detected_lang = detect(text)
-        print(f"Detected language: {detected_lang}")
+        print(f"✅ TRANSLATE_TO_ENGLISH: Detected language: {detected_lang}")
         
         if detected_lang == "en":
+            print("✅ TRANSLATE_TO_ENGLISH: Input is English, no translation needed")
             return text, "en"
         
         # Translate to English
@@ -1245,23 +1249,28 @@ def translate_to_english(text):
         translated_text = translator.translate(text)
         
         if translated_text and translated_text.strip():
-            print(f"Translation to English successful: {len(translated_text)} characters")
+            print(f"✅ TRANSLATE_TO_ENGLISH: Translation successful: {len(translated_text)} characters")
+            print(f"✅ TRANSLATE_TO_ENGLISH: Result: {translated_text}")
             return translated_text, detected_lang
         else:
-            print("Translation to English failed, using original")
+            print("❌ TRANSLATE_TO_ENGLISH: Translation failed, using original")
             return text, detected_lang
             
     except Exception as e:
-        print(f"Translation to English error: {str(e)}")
+        print(f"❌ TRANSLATE_TO_ENGLISH ERROR: {str(e)}")
         return text, "unknown"
 
 def translate_back(text, target_lang):
     """Translate text back to target language with robust error handling"""
+    print(f"🔄 TRANSLATE_BACK CALLED: target_lang='{target_lang}', text_length={len(text) if text else 0}")
+    
     try:
         if not text or not text.strip():
+            print("❌ TRANSLATE_BACK: Empty text, returning original")
             return text
             
         if target_lang == "en" or target_lang == "unknown":
+            print(f"❌ TRANSLATE_BACK: Target language is '{target_lang}', returning English text")
             return text
         
         # Language code mapping for common issues
@@ -1297,19 +1306,73 @@ def translate_back(text, target_lang):
                     print(f"Text already contains {normalized_lang} characters, skipping translation")
                     return text
         
-        print(f"Translating from English to {normalized_lang}")
-        translator = GoogleTranslator(source="en", target=normalized_lang)
-        translated = translator.translate(text)
+        print(f"✅ TRANSLATE_BACK: Translating from English to {normalized_lang}")
+        
+        # Handle long text by chunking if necessary (Google Translator limit is ~5000 chars)
+        if len(text) > 4000:
+            print(f"⚠️ TRANSLATE_BACK: Text is long ({len(text)} chars), chunking translation")
+            
+            # Split by paragraphs or sentences to preserve meaning
+            chunks = []
+            current_chunk = ""
+            
+            # Split by double newlines (paragraphs) first
+            paragraphs = text.split('\n\n')
+            
+            for paragraph in paragraphs:
+                if len(current_chunk + paragraph + '\n\n') <= 4000:
+                    current_chunk += paragraph + '\n\n'
+                else:
+                    if current_chunk:
+                        chunks.append(current_chunk.strip())
+                        current_chunk = paragraph + '\n\n'
+                    else:
+                        # Even single paragraph is too long, split by sentences
+                        sentences = paragraph.split('. ')
+                        for sentence in sentences:
+                            if len(current_chunk + sentence + '. ') <= 4000:
+                                current_chunk += sentence + '. '
+                            else:
+                                if current_chunk:
+                                    chunks.append(current_chunk.strip())
+                                current_chunk = sentence + '. '
+            
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            
+            # Translate each chunk
+            translated_chunks = []
+            translator = GoogleTranslator(source="en", target=normalized_lang)
+            
+            for i, chunk in enumerate(chunks):
+                try:
+                    translated_chunk = translator.translate(chunk)
+                    if translated_chunk and translated_chunk.strip():
+                        translated_chunks.append(translated_chunk)
+                        print(f"✅ TRANSLATE_BACK: Chunk {i+1}/{len(chunks)} translated successfully")
+                    else:
+                        print(f"❌ TRANSLATE_BACK: Chunk {i+1} failed, using original")
+                        translated_chunks.append(chunk)
+                except Exception as e:
+                    print(f"❌ TRANSLATE_BACK: Chunk {i+1} error: {str(e)}")
+                    translated_chunks.append(chunk)
+            
+            translated = '\n\n'.join(translated_chunks)
+            
+        else:
+            translator = GoogleTranslator(source="en", target=normalized_lang)
+            translated = translator.translate(text)
         
         if translated and translated.strip():
-            print(f"Translation successful: {len(translated)} characters")
+            print(f"✅ TRANSLATE_BACK: Translation successful: {len(translated)} characters")
+            print(f"✅ TRANSLATE_BACK: Preview: {translated[:100]}...")
             return translated
         else:
-            print("Translation returned empty result, using original")
+            print("❌ TRANSLATE_BACK: Translation returned empty result, using original")
             return text
             
     except Exception as e:
-        print(f"Translation error (en -> {target_lang}): {str(e)}")
+        print(f"❌ TRANSLATE_BACK ERROR (en -> {target_lang}): {str(e)}")
         return text
 
 # Cache the LLM globally for better performance
@@ -1438,8 +1501,14 @@ def trim_chat_memory(max_length=5):
 
 @app.post("/chat")
 async def chat(req: ChatRequest, request: Request):
+    print(f"\n🚀 CHAT ENDPOINT CALLED")
+    print(f"📝 User message: '{req.message}'")
+    
     user_message = req.message
     translated_query, original_lang = translate_to_english(user_message)
+    
+    print(f"🌍 Original language detected: '{original_lang}'")
+    print(f"🔤 Translated query: '{translated_query}'")
     
     # Check if manual location is provided
     if req.location:
@@ -1839,10 +1908,20 @@ Now provide the most intelligent, comprehensive, and valuable agricultural guida
         response_text += dataset_attribution
     
     # Translate back to original language FIRST
+    print(f"🔄 MAIN FLOW: About to translate back to '{original_lang}'")
+    print(f"📄 Response before translation: {response_text[:200]}...")
+    
     translated_response = translate_back(response_text, original_lang)
+    
+    print(f"✅ MAIN FLOW: Translation completed, length: {len(translated_response)}")
+    print(f"📄 Response after translation: {translated_response[:200]}...")
     
     # Then format with HTML
     final_response = format_response(translated_response)
+    
+    print(f"🎨 MAIN FLOW: HTML formatting completed")
+    print(f"📦 FINAL RESPONSE: {final_response[:200]}...")
+    
     return {
         "reply": final_response, 
         "detectedLang": original_lang, 

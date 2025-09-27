@@ -256,12 +256,12 @@ $(document).ready(function() {
                 speech.recognition.stop();
                 speechText();
                 $('#sendBtn').click();
-            }, 1500);
+            }, 3000);
         }
         r++;
         setTimeout(function() {
             r = 0;
-        }, 3000);
+        }, 3500);
 
         let text = $('#recoredText').text().trim();
         if (text.length > 1) {
@@ -293,7 +293,7 @@ $(document).ready(function() {
                 if (speech && speech.recognition) {
                     speech.recognition.start();
                 }
-            }, 500);
+            }, 1000);
 
             $('#mic-status').removeClass('active').text('Microphone is off');
         }
