@@ -1384,6 +1384,7 @@ def get_llm():
         _cached_llm = load_llm()
     return _cached_llm
 
+
 def format_response(text):
     """Convert markdown-style text to HTML"""
     if not text:
@@ -1392,28 +1393,11 @@ def format_response(text):
     # Convert **bold** to HTML
     text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</strong>', text)
     
-    # Convert *italic* to HTML
-    text = re.sub(r'\*([^*]+)\*', r'<em style="color: #34495e; font-style: italic;">\1</em>', text)
-    
-    # Convert headings (# ## ###)
-    text = re.sub(r'^### (.+)$', r'<h3 style="color: #2c3e50; font-size: 1.1em; font-weight: 600; margin: 16px 0 8px 0; border-left: 3px solid #2ecc71; padding-left: 8px;">\1</h3>', text, flags=re.MULTILINE)
-    text = re.sub(r'^## (.+)$', r'<h2 style="color: #2c3e50; font-size: 1.2em; font-weight: 700; margin: 20px 0 12px 0; border-bottom: 2px solid #2ecc71; padding-bottom: 4px;">\1</h2>', text, flags=re.MULTILINE)
-    text = re.sub(r'^# (.+)$', r'<h1 style="color: #2c3e50; font-size: 1.4em; font-weight: 700; margin: 24px 0 16px 0; border-bottom: 3px solid #2ecc71; padding-bottom: 6px;">\1</h1>', text, flags=re.MULTILINE)
-    
-    # Convert code blocks ```
-    text = re.sub(r'```([^`]+)```', r'<pre style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 12px; margin: 8px 0; overflow-x: auto; font-family: Consolas, Monaco, monospace; font-size: 13px;"><code>\1</code></pre>', text, flags=re.DOTALL)
-    
-    # Convert inline code `
-    text = re.sub(r'`([^`]+)`', r'<code style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 3px; padding: 2px 4px; font-family: Consolas, Monaco, monospace; font-size: 13px;">\1</code>', text)
-    
     # Convert bullet points
     text = re.sub(r'^• (.+)$', r'<div style="margin: 8px 0; padding-left: 20px; position: relative; line-height: 1.6;"><span style="position: absolute; left: 0; color: #2ecc71; font-weight: bold;">•</span>\1</div>', text, flags=re.MULTILINE)
     
     # Convert numbered lists
     text = re.sub(r'^(\d+)\. (.+)$', r'<div style="margin: 8px 0; padding-left: 20px; position: relative; line-height: 1.6;"><span style="position: absolute; left: 0; color: #2ecc71; font-weight: bold;">\1.</span>\2</div>', text, flags=re.MULTILINE)
-    
-    # Convert tables (basic support for | separated values)
-    text = re.sub(r'^\|(.+)\|$', r'<div style="border: 1px solid #ddd; padding: 8px; margin: 4px 0; border-radius: 3px;">\1</div>', text, flags=re.MULTILINE)
     
     # Convert line breaks
     text = text.replace('\n', '<br>')
@@ -1422,6 +1406,7 @@ def format_response(text):
     text = re.sub(r'(<br>\s*){3,}', '<br><br>', text)
     
     return text
+
 
 def get_direct_response(query):
     """Get direct response from LLM without agent complexity"""
