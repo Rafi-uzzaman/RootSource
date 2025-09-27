@@ -928,6 +928,18 @@ async def favicon():
 async def health():
     return {"status": "ok", "app": "RootSource AI"}
 
+@app.get("/debug")
+async def debug():
+    """Debug endpoint to check environment variables"""
+    groq_key = os.getenv("GROQ_API_KEY")
+    return {
+        "groq_key_present": bool(groq_key),
+        "groq_key_length": len(groq_key) if groq_key else 0,
+        "groq_key_prefix": groq_key[:10] + "..." if groq_key else None,
+        "host": os.getenv("HOST", "not_set"),
+        "port": os.getenv("PORT", "not_set")
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=HOST, port=PORT)
