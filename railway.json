@@ -3,6 +3,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python backend.py"
+    "startCommand": "gunicorn backend:app -c gunicorn.conf.py"
   }
 }
