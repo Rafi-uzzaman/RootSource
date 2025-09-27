@@ -23,8 +23,15 @@ from starlette.responses import JSONResponse
 import math
 
 # Load environment variables unless explicitly disabled (e.g., in tests)
+# Only load .env file if it exists and we're not in a cloud environment
 if not os.getenv("DONT_LOAD_DOTENV") and not os.getenv("PYTEST_CURRENT_TEST"):
-    load_dotenv(find_dotenv())
+    try:
+        dotenv_path = find_dotenv()
+        if dotenv_path:
+            load_dotenv(dotenv_path)
+    except Exception:
+        # If dotenv loading fails, continue with system environment variables
+        pass
 
 # Initialize FastAPI
 app = FastAPI(title="RootSource AI", version="1.0.0")
@@ -932,12 +939,16 @@ async def health():
 async def debug():
     """Debug endpoint to check environment variables"""
     groq_key = os.getenv("GROQ_API_KEY")
+    # Get all environment variables that might be relevant
+    env_vars = {k: v for k, v in os.environ.items() if any(x in k.upper() for x in ['GROQ', 'API', 'KEY', 'PORT', 'HOST', 'RAILWAY'])}
     return {
         "groq_key_present": bool(groq_key),
         "groq_key_length": len(groq_key) if groq_key else 0,
         "groq_key_prefix": groq_key[:10] + "..." if groq_key else None,
         "host": os.getenv("HOST", "not_set"),
-        "port": os.getenv("PORT", "not_set")
+        "port": os.getenv("PORT", "not_set"),
+        "env_vars_found": list(env_vars.keys()),
+        "total_env_vars": len(os.environ)
     }
 
 if __name__ == "__main__":
