@@ -53,3 +53,7 @@ INFO:     103.133.32.23:0 - "GET /assets/audio/start.mp3 HTTP/1.1" 200 OK
 INFO:     103.133.32.23:0 - "GET /assets/audio/message%20send.mp3 HTTP/1.1" 200 OK
 INFO:     103.133.32.23:0 - "POST /chat HTTP/1.1" 200 OK
 INFO:     103.133.32.23:0 - "GET /assets/audio/message-notification.mp3 HTTP/1.1" 200 OK
+POWER dataset successfully fetched
+NASA datasets attempted: ['POWER']
+NASA datasets successfully used: ['POWER']
+INFO:     127.0.0.1:43488 - "POST /chat HTTP/1.1" 200 OK

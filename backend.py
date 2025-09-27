@@ -165,9 +165,138 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
     print("Location detection failed, using New York as fallback")
     return 40.7128, -74.0060, "New York, NY, USA (fallback)"
 
+# Comprehensive Agricultural Knowledge Base
+CROP_DATABASE = {
+    "rice": {
+        "varieties": ["Aman", "Aus", "Boro", "Basmati", "Jasmine", "Arborio"],
+        "growth_stages": ["Germination", "Seedling", "Tillering", "Booting", "Flowering", "Grain filling", "Maturity"],
+        "water_requirements": "1500-2000mm per season",
+        "soil_pH": "5.5-7.0",
+        "temperature": "20-35°C optimal",
+        "diseases": ["Blast", "Sheath blight", "Brown spot", "Bacterial leaf blight"],
+        "pests": ["Rice stem borer", "Brown planthopper", "Rice bug", "Armyworm"],
+        "nutrients": {"N": "100-150 kg/ha", "P": "50-75 kg/ha", "K": "50-75 kg/ha"}
+    },
+    "wheat": {
+        "varieties": ["Hard red winter", "Soft white", "Durum", "Hard red spring"],
+        "growth_stages": ["Germination", "Tillering", "Stem elongation", "Boot", "Heading", "Grain fill", "Harvest"],
+        "water_requirements": "450-650mm per season",
+        "soil_pH": "6.0-7.5",
+        "temperature": "15-25°C optimal",
+        "diseases": ["Rust", "Septoria", "Powdery mildew", "Fusarium head blight"],
+        "pests": ["Aphids", "Hessian fly", "Armyworm", "Cereal leaf beetle"],
+        "nutrients": {"N": "120-180 kg/ha", "P": "40-60 kg/ha", "K": "40-80 kg/ha"}
+    },
+    "maize": {
+        "varieties": ["Dent corn", "Flint corn", "Sweet corn", "Popcorn"],
+        "growth_stages": ["Emergence", "V6-V8", "Tasseling", "Silking", "Grain filling", "Maturity"],
+        "water_requirements": "500-800mm per season",
+        "soil_pH": "6.0-7.0",
+        "temperature": "20-30°C optimal",
+        "diseases": ["Northern corn leaf blight", "Gray leaf spot", "Common rust", "Anthracnose"],
+        "pests": ["Corn borer", "Fall armyworm", "Corn rootworm", "Cutworm"],
+        "nutrients": {"N": "150-250 kg/ha", "P": "60-100 kg/ha", "K": "60-120 kg/ha"}
+    },
+    "tomato": {
+        "varieties": ["Determinate", "Indeterminate", "Cherry", "Roma", "Beefsteak"],
+        "growth_stages": ["Germination", "Seedling", "Vegetative", "Flowering", "Fruit set", "Ripening"],
+        "water_requirements": "400-600mm per season",
+        "soil_pH": "6.0-6.8",
+        "temperature": "18-30°C optimal",
+        "diseases": ["Late blight", "Early blight", "Fusarium wilt", "Bacterial spot"],
+        "pests": ["Hornworm", "Whitefly", "Aphids", "Thrips"],
+        "nutrients": {"N": "150-200 kg/ha", "P": "80-120 kg/ha", "K": "200-300 kg/ha"}
+    }
+}
+
+DISEASE_DATABASE = {
+    "blast": {
+        "crops": ["rice"],
+        "pathogen": "Magnaporthe oryzae",
+        "symptoms": "Diamond-shaped lesions with gray centers and brown borders",
+        "conditions": "High humidity, temperature 25-28°C, leaf wetness",
+        "management": ["Resistant varieties", "Fungicide application", "Balanced fertilization", "Field sanitation"],
+        "prevention": "Avoid excessive nitrogen, maintain proper plant spacing"
+    },
+    "late_blight": {
+        "crops": ["tomato", "potato"],
+        "pathogen": "Phytophthora infestans",
+        "symptoms": "Water-soaked lesions, white mold growth under humid conditions",
+        "conditions": "Cool temperatures (15-20°C), high humidity (>90%)",
+        "management": ["Copper-based fungicides", "Systemic fungicides", "Remove infected plants", "Improve ventilation"],
+        "prevention": "Choose resistant varieties, avoid overhead irrigation"
+    },
+    "rust": {
+        "crops": ["wheat", "coffee", "beans"],
+        "pathogen": "Puccinia species",
+        "symptoms": "Orange to reddish-brown pustules on leaves",
+        "conditions": "Moderate temperatures, high humidity, dew formation",
+        "management": ["Fungicide applications", "Resistant varieties", "Crop rotation"],
+        "prevention": "Plant certified disease-free seeds, avoid dense planting"
+    }
+}
+
+PEST_DATABASE = {
+    "fall_armyworm": {
+        "crops": ["maize", "rice", "sorghum", "sugarcane"],
+        "scientific_name": "Spodoptera frugiperda",
+        "damage": "Feeds on leaves creating characteristic 'window pane' damage",
+        "lifecycle": "30-40 days (egg to adult)",
+        "management": ["Bt corn varieties", "Insecticide rotation", "Biological control", "Pheromone traps"],
+        "natural_enemies": ["Parasitic wasps", "Predatory beetles", "Birds"]
+    },
+    "aphids": {
+        "crops": ["wheat", "rice", "vegetables", "fruit trees"],
+        "scientific_name": "Multiple species",
+        "damage": "Sucks plant sap, transmits viruses, produces honeydew",
+        "lifecycle": "7-10 days per generation",
+        "management": ["Systemic insecticides", "Reflective mulches", "Beneficial insects", "Neem oil"],
+        "natural_enemies": ["Ladybugs", "Lacewings", "Parasitic wasps"]
+    },
+    "whitefly": {
+        "crops": ["tomato", "cotton", "vegetables"],
+        "scientific_name": "Bemisia tabaci",
+        "damage": "Sucks sap, transmits viruses, reduces plant vigor",
+        "lifecycle": "18-30 days depending on temperature",
+        "management": ["Yellow sticky traps", "Systemic insecticides", "Reflective mulches", "Biological control"],
+        "natural_enemies": ["Encarsia wasps", "Delphastus beetles", "Chrysoperla lacewings"]
+    }
+}
+
+SOIL_DATABASE = {
+    "pH_management": {
+        "acidic_soils": {
+            "pH_range": "< 6.0",
+            "characteristics": "High aluminum, iron toxicity, nutrient deficiencies",
+            "amendments": ["Agricultural lime", "Dolomitic lime", "Wood ash"],
+            "crops_tolerant": ["Blueberries", "Potatoes", "Tea", "Coffee"]
+        },
+        "alkaline_soils": {
+            "pH_range": "> 7.5",
+            "characteristics": "High calcium, magnesium, iron deficiency",
+            "amendments": ["Sulfur", "Aluminum sulfate", "Organic matter"],
+            "crops_tolerant": ["Asparagus", "Beets", "Spinach", "Cabbage"]
+        }
+    },
+    "nutrient_deficiencies": {
+        "nitrogen": {
+            "symptoms": "Yellowing from older leaves, stunted growth",
+            "sources": ["Urea", "Ammonium sulfate", "Compost", "Legume cover crops"]
+        },
+        "phosphorus": {
+            "symptoms": "Purple leaf discoloration, delayed maturity",
+            "sources": ["Triple superphosphate", "Bone meal", "Rock phosphate"]
+        },
+        "potassium": {
+            "symptoms": "Leaf edge burning, weak stems, poor fruit quality",
+            "sources": ["Muriate of potash", "Sulfate of potash", "Wood ash"]
+        }
+    }
+}
+
 def get_country_agricultural_context(location_name: str) -> str:
     """
-    Add country-specific agricultural context to improve responses
+    Add comprehensive country-specific agricultural context to improve responses
     """
     if not location_name:
         return ""
@@ -176,27 +305,104 @@ def get_country_agricultural_context(location_name: str) -> str:
     
     if "bangladesh" in location_lower:
         return """
-**Bangladesh Agricultural Context:**
-- Main crops: Rice (Aman, Aus, Boro), Jute, Tea, Sugarcane, Wheat, Maize, Vegetables
-- Growing seasons: Kharif (April-September), Rabi (October-March)
-- Major government programs: Agriculture Incentive Program, Fertilizer Subsidy Program, Agricultural Credit Program
-- Key institutions: Ministry of Agriculture, Bangladesh Agricultural Development Corporation (BADC)
-- Climate: Tropical monsoon climate with distinct wet and dry seasons
-- Soil types: Alluvial, clayey, sandy loam predominant in Gazipur area
+**BANGLADESH AGRICULTURAL INTELLIGENCE:**
+
+**Primary Crops & Seasons:**
+• **Rice Production**: Aman (June-December), Aus (April-August), Boro (December-June)
+• **Other Major Crops**: Jute, Tea, Sugarcane, Wheat, Maize, Lentils, Vegetables
+• **Growing Seasons**: Kharif (April-September), Rabi (October-March)
+
+**Climate & Environmental Factors:**
+• **Climate Type**: Tropical monsoon with 80% rainfall during June-October
+• **Average Temperature**: 20-34°C, humidity 70-90%
+• **Soil Types**: Alluvial (65%), Hill soils (12%), Terrace soils (8%), Peat soils (5%)
+• **Water Resources**: 700+ rivers, groundwater at 2-8m depth
+
+**Agricultural Challenges:**
+• **Monsoon Dependency**: 70% rain-fed agriculture, flooding risks
+• **Soil Salinity**: 1.06 million hectares affected in coastal areas
+• **Arsenic**: Groundwater contamination in 40+ districts
+• **Climate Change**: Sea level rise, temperature increase, irregular rainfall
+
+**Government Support Systems:**
+• **Subsidies**: Fertilizer (50% subsidy), Seeds (30-50% discount), Irrigation equipment
+• **Credit Programs**: Agricultural loans at 4-6% interest through BKB, RAKUB
+• **Extension Services**: 13,500+ extension workers, farmer field schools
+• **Research Institutes**: BRRI (rice), BARI (agriculture), BJRI (jute)
+
+**Market & Economics:**
+• **Agricultural GDP**: 13.6% of total GDP, employs 40% of workforce
+• **Export Crops**: Rice, jute, tea, shrimp, vegetables
+• **Food Security**: Self-sufficient in rice production since 2013
+• **Price Support**: Government procurement at minimum support prices
 """
     elif "india" in location_lower:
         return """
-**India Agricultural Context:**  
-- Main crops: Rice, Wheat, Sugarcane, Cotton, Pulses, Oilseeds
-- Growing seasons: Kharif (June-October), Rabi (November-April), Zaid (April-June)
-- Government schemes: PM-KISAN, Soil Health Card, Pradhan Mantri Fasal Bima Yojana
+**INDIA AGRICULTURAL INTELLIGENCE:**
+
+**Primary Crops & Seasons:**
+• **Kharif** (June-October): Rice, Cotton, Sugarcane, Pulses, Oilseeds
+• **Rabi** (November-April): Wheat, Barley, Peas, Gram, Mustard
+• **Zaid** (April-June): Fodder crops, Watermelon, Cucumber
+
+**Climate Zones:**
+• **Tropical**: South India - High temperature, moderate to high rainfall
+• **Subtropical**: North India - Distinct seasons, monsoon-dependent
+• **Arid/Semi-arid**: Rajasthan, Gujarat - Low rainfall, irrigation essential
+
+**Government Schemes:**
+• **PM-KISAN**: ₹6,000/year direct benefit transfer
+• **Soil Health Cards**: Free soil testing and nutrient recommendations
+• **Fasal Bima Yojana**: Crop insurance with 2% premium for farmers
+• **MSP System**: Minimum Support Price for 23 crops
+
+**Technology Adoption:**
+• **Digital Agriculture**: eNAM (National Agriculture Market), AgriStack
+• **Precision Farming**: GPS-guided tractors, drone spraying
+• **Organic Farming**: PKVY scheme, 3.56 million hectares under organic cultivation
 """
     elif "usa" in location_lower or "america" in location_lower:
         return """
-**USA Agricultural Context:**
-- Main crops: Corn, Soybeans, Wheat, Cotton, Rice
-- Growing season: Generally April-October depending on region
-- Government programs: USDA Farm Service Agency, Crop Insurance, Conservation Programs
+**USA AGRICULTURAL INTELLIGENCE:**
+
+**Major Crop Regions:**
+• **Corn Belt**: Iowa, Illinois, Nebraska, Indiana - 80% of US corn production
+• **Great Plains**: Kansas, North Dakota, Montana - Wheat production center
+• **California Central Valley**: Fruits, vegetables, nuts - 25% of US food supply
+
+**Technology Leadership:**
+• **Precision Agriculture**: 60% adoption rate, GPS guidance, variable rate application
+• **Biotechnology**: 90%+ GMO adoption in corn, soybeans, cotton
+• **Data Analytics**: Real-time yield monitoring, predictive analytics
+
+**Government Programs:**
+• **Crop Insurance**: 85% of planted acres covered, $100+ billion coverage
+• **Conservation Programs**: CRP, EQIP, CSP - environmental sustainability
+• **Research Investment**: $3+ billion annual agricultural R&D spending
+
+**Sustainability Focus:**
+• **Carbon Markets**: Voluntary carbon credit programs for farmers
+• **Cover Crops**: 15.4 million acres, 5% annual growth
+• **Renewable Energy**: 50,000+ farms with solar/wind installations
+"""
+    elif "china" in location_lower:
+        return """
+**CHINA AGRICULTURAL INTELLIGENCE:**
+
+**Production Scale:**
+• **World's Largest Producer**: Rice, wheat, vegetables, fruits, aquaculture
+• **Agricultural Land**: 165 million hectares cultivated land
+• **Food Security**: 95% self-sufficiency target for major grains
+
+**Technology Innovation:**
+• **Smart Agriculture**: IoT sensors, AI-powered crop monitoring
+• **Vertical Farming**: Leading in controlled environment agriculture
+• **Biotechnology**: CRISPR gene editing, hybrid crop development
+
+**Policy Framework:**
+• **Rural Revitalization**: $1.4 trillion investment in rural infrastructure
+• **Subsidy System**: Direct payments, input subsidies, price supports
+• **Land Reforms**: Land use rights, consolidation programs
 """
     
     return ""
@@ -553,12 +759,14 @@ async def get_nasa_grace_data(lat: float, lon: float) -> Dict:
     
     return {"success": False, "dataset": "GRACE", "error": "Unable to fetch groundwater data"}
 
-def analyze_comprehensive_nasa_data(nasa_datasets: List[Dict]) -> str:
+def analyze_comprehensive_nasa_data(nasa_datasets: List[Dict], question_analysis: Dict) -> str:
     """
-    Analyze multiple NASA datasets and provide comprehensive agricultural insights.
+    Enhanced analysis of multiple NASA datasets with intelligent agricultural insights.
     """
     insights = []
     used_datasets = []
+    recommendations = []
+    alerts = []
     
     try:
         # Analyze each successful dataset
@@ -570,124 +778,334 @@ def analyze_comprehensive_nasa_data(nasa_datasets: List[Dict]) -> str:
             data = dataset_result.get("data", {})
             used_datasets.append(dataset_name)
             
-            # POWER data analysis (climate)
+            # POWER data analysis (climate) - Enhanced
             if dataset_name == "POWER" and "properties" in data:
                 params = data["properties"]["parameter"]
                 
                 if "T2M" in params:
                     temps = list(params["T2M"].values())
                     avg_temp = sum(temps) / len(temps)
-                    insights.append(f"**Climate (POWER)**: Average temperature {avg_temp:.1f}°C")
+                    max_temp = max(temps)
+                    min_temp = min(temps)
+                    temp_range = max_temp - min_temp
                     
+                    insights.append(f"**Climate Analysis (POWER)**: Avg {avg_temp:.1f}°C (Range: {min_temp:.1f}-{max_temp:.1f}°C)")
+                    
+                    # Advanced temperature analysis
                     if avg_temp < 5:
-                        insights.append("• **Frost Alert**: Protect sensitive crops from cold damage")
+                        alerts.append("**Frost Risk**: Implement frost protection measures immediately")
+                        recommendations.append("• Use row covers, wind machines, or heaters for sensitive crops")
                     elif avg_temp > 35:
-                        insights.append("• **Heat Stress**: Monitor crops for temperature stress")
+                        alerts.append("**Heat Stress Alert**: Critical temperature threshold exceeded")
+                        recommendations.append("• Increase irrigation frequency, provide shade, adjust planting schedules")
+                    elif temp_range > 20:
+                        insights.append("• **High Temperature Variability**: Monitor crop stress indicators")
                 
                 if "PRECTOTCORR" in params:
                     precip = list(params["PRECTOTCORR"].values())
                     total_precip = sum(precip)
-                    insights.append(f"**Precipitation**: {total_precip:.1f}mm over 30 days")
+                    avg_daily_precip = total_precip / len(precip)
+                    dry_days = sum(1 for p in precip if p < 0.1)
+                    
+                    insights.append(f"**Precipitation Analysis**: {total_precip:.1f}mm total, {avg_daily_precip:.1f}mm/day average")
+                    insights.append(f"• **Dry Days**: {dry_days} out of {len(precip)} days")
                     
                     if total_precip < 25:
-                        insights.append("• **Irrigation Needed**: Low rainfall requires supplemental water")
+                        alerts.append("**Drought Conditions**: Severe water deficit detected")
+                        recommendations.append("• Implement water conservation, check irrigation systems, consider drought-resistant varieties")
                     elif total_precip > 200:
-                        insights.append("• **Drainage Check**: High rainfall may cause waterlogging")
+                        alerts.append("**Excess Rainfall**: Risk of waterlogging and fungal diseases")
+                        recommendations.append("• Ensure proper drainage, monitor for fungal diseases, delay fertilizer application")
+                
+                if "RH2M" in params:
+                    humidity = list(params["RH2M"].values())
+                    avg_humidity = sum(humidity) / len(humidity)
+                    insights.append(f"• **Humidity**: {avg_humidity:.0f}% average")
+                    
+                    if avg_humidity > 85:
+                        recommendations.append("• High humidity increases disease risk - enhance air circulation")
+                    elif avg_humidity < 40:
+                        recommendations.append("• Low humidity may cause water stress - monitor soil moisture")
             
-            # MODIS data analysis (vegetation)
+            # MODIS data analysis (vegetation) - Enhanced
             elif dataset_name == "MODIS":
                 ndvi = data.get("ndvi", 0)
                 evi = data.get("evi", 0)
                 lai = data.get("lai", 0)
+                gpp = data.get("gpp", 0)
+                fpar = data.get("fpar", 0)
                 
-                insights.append(f"**Vegetation Health (MODIS)**: NDVI {ndvi:.2f}, LAI {lai:.1f}")
+                insights.append(f"**Vegetation Health (MODIS)**: NDVI {ndvi:.3f}, EVI {evi:.3f}, LAI {lai:.1f}")
                 
-                if ndvi > 0.7:
-                    insights.append("• **Excellent Vegetation**: Crops showing strong health and vigor")
+                # Advanced vegetation analysis
+                if ndvi > 0.8:
+                    insights.append("• **Optimal Vegetation**: Peak health and photosynthetic activity")
+                    recommendations.append("• Maintain current management practices, prepare for harvest planning")
+                elif ndvi > 0.7:
+                    insights.append("• **Excellent Vegetation**: Strong crop vigor and canopy development")
                 elif ndvi > 0.5:
-                    insights.append("• **Good Vegetation**: Healthy crop growth detected")
+                    insights.append("• **Good Vegetation**: Healthy crop growth with room for improvement")
+                    recommendations.append("• Consider nutrient supplementation or pest monitoring")
                 elif ndvi > 0.3:
-                    insights.append("• **Moderate Vegetation**: Consider crop management improvements")
+                    insights.append("• **Moderate Vegetation**: Crop stress indicators present")
+                    alerts.append("**Vegetation Stress**: Investigate water, nutrient, or pest issues")
                 else:
-                    insights.append("• **Poor Vegetation**: Immediate crop health assessment needed")
+                    alerts.append("**Critical Vegetation Health**: Immediate intervention required")
+                    recommendations.append("• Conduct field inspection, soil test, and pest assessment")
+                
+                # LAI-based analysis
+                if lai > 4:
+                    insights.append("• **Dense Canopy**: High leaf area index indicates strong growth")
+                elif lai < 1.5:
+                    insights.append("• **Sparse Canopy**: Low leaf area may indicate stress or early growth stage")
+                
+                # Photosynthetic efficiency
+                if gpp > 12:
+                    insights.append("• **High Productivity**: Strong photosynthetic activity detected")
+                elif gpp < 6:
+                    insights.append("• **Low Productivity**: Reduced photosynthetic efficiency")
             
-            # Landsat data analysis (detailed monitoring)
+            # Landsat data analysis (detailed monitoring) - Enhanced
             elif dataset_name == "LANDSAT":
                 crop_health = data.get("crop_health_index", 0)
                 water_stress = data.get("water_stress", "unknown")
+                crop_confidence = data.get("crop_type_confidence", 0)
+                irrigation_status = data.get("irrigation_status", "unknown")
                 
-                insights.append(f"**Crop Analysis (Landsat)**: Health index {crop_health:.2f}")
+                insights.append(f"**Precision Crop Analysis (Landsat)**: Health index {crop_health:.3f}, Confidence {crop_confidence:.2f}")
                 
-                if crop_health > 0.8:
-                    insights.append("• **Optimal Crop Health**: Excellent field conditions")
+                # Detailed crop health assessment
+                if crop_health > 0.9:
+                    insights.append("• **Exceptional Crop Health**: Peak field performance achieved")
+                    recommendations.append("• Document successful practices for replication")
+                elif crop_health > 0.8:
+                    insights.append("• **Optimal Crop Health**: Excellent management practices evident")
                 elif crop_health > 0.6:
-                    insights.append("• **Good Crop Health**: Satisfactory growing conditions")
+                    insights.append("• **Good Crop Health**: Minor optimization opportunities exist")
+                    recommendations.append("• Fine-tune nutrient or water management for improvement")
+                elif crop_health > 0.4:
+                    insights.append("• **Moderate Crop Stress**: Management intervention needed")
+                    alerts.append("**Crop Stress Alert**: Investigate nutrient, water, or pest factors")
                 else:
-                    insights.append("• **Crop Stress Detected**: Investigate field conditions")
+                    alerts.append("**Critical Crop Health**: Immediate field assessment required")
+                    recommendations.append("• Conduct comprehensive field diagnosis within 48 hours")
                 
-                if water_stress == "high":
-                    insights.append("• **Water Stress Alert**: Increase irrigation frequency")
+                # Water stress analysis
+                if water_stress == "severe":
+                    alerts.append("**Severe Water Stress**: Critical irrigation needed")
+                    recommendations.append("• Implement emergency irrigation, check system efficiency")
+                elif water_stress == "moderate":
+                    insights.append("• **Moderate Water Stress**: Adjust irrigation scheduling")
+                    recommendations.append("• Increase irrigation frequency by 25-30%")
                 elif water_stress == "low":
-                    insights.append("• **Adequate Water**: Current irrigation is sufficient")
+                    insights.append("• **Optimal Water Status**: Current irrigation management effective")
+                
+                # Irrigation system performance
+                if irrigation_status == "optimal":
+                    insights.append("• **Irrigation System**: Operating at peak efficiency")
+                elif irrigation_status == "adequate":
+                    insights.append("• **Irrigation System**: Performing well with minor optimization potential")
+                else:
+                    recommendations.append("• Review irrigation system performance and coverage patterns")
             
-            # GLDAS data analysis (soil and hydrology)
+            # GLDAS data analysis (soil and hydrology) - Enhanced
             elif dataset_name == "GLDAS":
                 soil_moisture = data.get("soil_moisture", 0)
+                root_zone_moisture = data.get("root_zone_moisture", 0)
                 et_rate = data.get("evapotranspiration", 0)
+                runoff = data.get("runoff", 0)
+                canopy_water = data.get("canopy_water", 0)
                 
-                insights.append(f"**Soil Conditions (GLDAS)**: Moisture {soil_moisture:.2f} m³/m³")
+                insights.append(f"**Hydrological Analysis (GLDAS)**: Soil moisture {soil_moisture:.3f} m³/m³, Root zone {root_zone_moisture:.3f} m³/m³")
                 
-                if soil_moisture < 0.2:
-                    insights.append("• **Dry Soil**: Irrigation recommended for optimal growth")
-                elif soil_moisture > 0.5:
-                    insights.append("• **Saturated Soil**: Monitor for drainage issues")
+                # Advanced soil moisture analysis
+                if soil_moisture < 0.15:
+                    alerts.append("**Severe Drought**: Critical soil moisture deficit")
+                    recommendations.append("• Implement emergency irrigation, consider drought-resistant varieties")
+                elif soil_moisture < 0.25:
+                    alerts.append("**Drought Stress**: Below optimal soil moisture levels")
+                    recommendations.append("• Increase irrigation intensity, apply mulching")
+                elif soil_moisture > 0.55:
+                    alerts.append("**Waterlogged Conditions**: Excess soil moisture detected")
+                    recommendations.append("• Improve drainage, delay fertilizer application, monitor for root diseases")
+                elif soil_moisture > 0.45:
+                    insights.append("• **High Soil Moisture**: Monitor drainage and disease risk")
                 else:
-                    insights.append("• **Optimal Soil Moisture**: Good conditions for crop growth")
+                    insights.append("• **Optimal Soil Moisture**: Ideal conditions for crop growth")
                 
-                insights.append(f"• **Evapotranspiration**: {et_rate:.1f} mm/day (water demand)")
+                # Evapotranspiration analysis
+                insights.append(f"• **Water Demand**: {et_rate:.1f} mm/day evapotranspiration")
+                if et_rate > 6:
+                    recommendations.append("• High water demand - ensure adequate irrigation capacity")
+                elif et_rate < 2:
+                    insights.append("• Low water demand period - reduce irrigation frequency")
+                
+                # Root zone analysis
+                if root_zone_moisture < soil_moisture * 0.7:
+                    recommendations.append("• Root zone moisture deficit - deep irrigation recommended")
+                
+                # Runoff analysis
+                if runoff > 2:
+                    insights.append("• **High Runoff**: Water loss and potential erosion risk")
+                    recommendations.append("• Consider contour farming, cover crops, or terracing")
             
-            # GRACE data analysis (groundwater)
+            # GRACE data analysis (groundwater) - Enhanced
             elif dataset_name == "GRACE":
                 gw_storage = data.get("groundwater_storage", 0)
+                total_water_storage = data.get("total_water_storage", 0)
                 water_trend = data.get("water_trend", "unknown")
                 drought_indicator = data.get("drought_indicator", "unknown")
+                seasonal_variation = data.get("seasonal_variation", "unknown")
                 
-                insights.append(f"**Groundwater (GRACE)**: Storage change {gw_storage:.1f} cm")
+                insights.append(f"**Groundwater Analysis (GRACE)**: Storage change {gw_storage:.1f} cm, Total water {total_water_storage:.1f} cm")
                 
+                # Groundwater trend analysis
                 if water_trend == "declining":
-                    insights.append("• **Water Conservation**: Groundwater levels decreasing")
-                elif water_trend == "stable":
-                    insights.append("• **Stable Water Supply**: Groundwater levels maintained")
+                    if abs(gw_storage) > 3:
+                        alerts.append("**Critical Groundwater Depletion**: Severe water table decline")
+                        recommendations.append("• Implement water conservation, explore alternative sources")
+                    else:
+                        insights.append("• **Groundwater Decline**: Monitor water usage efficiency")
+                elif water_trend == "increasing":
+                    insights.append("• **Groundwater Recovery**: Positive recharge trend")
+                else:
+                    insights.append("• **Stable Groundwater**: Sustainable water table levels")
                 
-                if drought_indicator in ["severe", "extreme"]:
-                    insights.append("• **Drought Alert**: Water conservation measures recommended")
+                # Drought analysis
+                if drought_indicator == "severe":
+                    alerts.append("**Severe Drought**: Multi-faceted water stress")
+                    recommendations.append("• Activate drought management plan, prioritize high-value crops")
                 elif drought_indicator == "moderate":
-                    insights.append("• **Drought Watch**: Monitor water usage carefully")
+                    insights.append("• **Drought Watch**: Elevated water stress conditions")
+                    recommendations.append("• Implement water-saving practices, monitor crop stress")
+                
+                # Seasonal variation insights
+                if seasonal_variation == "high":
+                    recommendations.append("• Plan irrigation storage for dry season water security")
         
-        if not insights:
+        # Compile comprehensive analysis
+        analysis_sections = []
+        
+        if insights:
+            analysis_sections.append("**NASA SATELLITE DATA ANALYSIS:**")
+            analysis_sections.extend(insights)
+        
+        if alerts:
+            analysis_sections.append("\n**⚠ AGRICULTURAL ALERTS:**")
+            analysis_sections.extend(alerts)
+        
+        if recommendations:
+            analysis_sections.append("\n**🎯 ACTIONABLE RECOMMENDATIONS:**")
+            analysis_sections.extend(recommendations)
+        
+        # Add integration summary
+        if len(used_datasets) > 1:
+            analysis_sections.append(f"\n**📊 DATA INTEGRATION**: Analysis combines {len(used_datasets)} NASA datasets for comprehensive assessment")
+        
+        if not analysis_sections:
             return "Unable to analyze NASA data for agricultural insights."
         
-        return "\n".join(insights)
+        return "\n".join(analysis_sections)
         
     except Exception as e:
         print(f"Comprehensive NASA analysis error: {e}")
-        return "Error analyzing NASA datasets."
+        import traceback
+        traceback.print_exc()
+        return "Error analyzing NASA datasets - using fallback agricultural guidance."
+
+def classify_agricultural_question(query: str) -> Dict[str, any]:
+    """
+    Advanced question classification for intelligent routing and response optimization
+    """
+    query_lower = query.lower()
+    
+    # Question type classification
+    question_types = {
+        "CROP_MANAGEMENT": ["plant", "grow", "crop", "variety", "cultivar", "seed", "planting", "harvest"],
+        "DISEASE_DIAGNOSIS": ["disease", "pest", "bug", "insect", "fungus", "blight", "rot", "wilt", "spot"],
+        "SOIL_HEALTH": ["soil", "fertility", "pH", "nutrient", "fertilizer", "compost", "organic matter"],
+        "WEATHER_CLIMATE": ["weather", "climate", "rain", "temperature", "drought", "flood", "season"],
+        "IRRIGATION_WATER": ["water", "irrigation", "drought", "moisture", "watering", "sprinkler"],
+        "ECONOMICS_MARKET": ["price", "cost", "profit", "market", "sell", "buy", "economic", "income"],
+        "GOVERNMENT_POLICY": ["subsidy", "government", "support", "program", "scheme", "grant", "loan", "policy"],
+        "TECHNOLOGY": ["equipment", "machinery", "technology", "automation", "drone", "sensor", "GPS"],
+        "LIVESTOCK": ["cattle", "cow", "pig", "chicken", "livestock", "animal", "feed", "grazing"],
+        "ORGANIC_SUSTAINABLE": ["organic", "sustainable", "natural", "bio", "ecological", "environment"]
+    }
+    
+    # Complexity level detection
+    complexity_indicators = {
+        "BASIC": ["what is", "how to", "when to", "simple", "easy"],
+        "INTERMEDIATE": ["best practice", "recommend", "strategy", "method", "technique"],
+        "ADVANCED": ["optimize", "precision", "data", "analysis", "research", "study", "scientific"]
+    }
+    
+    # Urgency detection
+    urgency_indicators = {
+        "HIGH": ["urgent", "emergency", "dying", "critical", "immediate", "help", "problem"],
+        "MEDIUM": ["soon", "quickly", "need", "important", "issue"],
+        "LOW": ["planning", "future", "consider", "thinking", "eventually"]
+    }
+    
+    # Analyze question
+    detected_types = []
+    for question_type, keywords in question_types.items():
+        if any(keyword in query_lower for keyword in keywords):
+            detected_types.append(question_type)
+    
+    complexity = "INTERMEDIATE"  # default
+    for level, keywords in complexity_indicators.items():
+        if any(keyword in query_lower for keyword in keywords):
+            complexity = level
+            break
+    
+    urgency = "LOW"  # default
+    for level, keywords in urgency_indicators.items():
+        if any(keyword in query_lower for keyword in keywords):
+            urgency = level
+            break
+    
+    # Primary question type (most specific match)
+    primary_type = detected_types[0] if detected_types else "GENERAL_AGRICULTURE"
+    
+    return {
+        "primary_type": primary_type,
+        "all_types": detected_types,
+        "complexity": complexity,
+        "urgency": urgency,
+        "needs_nasa_data": primary_type in ["CROP_MANAGEMENT", "WEATHER_CLIMATE", "IRRIGATION_WATER", "SOIL_HEALTH"],
+        "needs_search": complexity == "ADVANCED" or primary_type in ["ECONOMICS_MARKET", "GOVERNMENT_POLICY", "TECHNOLOGY"]
+    }
 
 def determine_relevant_nasa_datasets(query: str) -> List[str]:
     """
-    Determine which NASA datasets are relevant for a given agricultural query.
+    Enhanced NASA dataset selection based on intelligent question analysis
     """
     query_lower = query.lower()
+    question_analysis = classify_agricultural_question(query)
     relevant_datasets = set()
     
-    # Check query against dataset relevance mapping
+    # Type-based dataset selection
+    dataset_mapping = {
+        "CROP_MANAGEMENT": ["POWER", "MODIS", "LANDSAT"],
+        "DISEASE_DIAGNOSIS": ["POWER", "MODIS", "LANDSAT"],  # Weather conditions affect disease
+        "SOIL_HEALTH": ["GLDAS", "POWER", "GRACE"],
+        "WEATHER_CLIMATE": ["POWER", "GLDAS"],
+        "IRRIGATION_WATER": ["POWER", "GLDAS", "GRACE"],
+        "ORGANIC_SUSTAINABLE": ["MODIS", "LANDSAT", "GLDAS"]
+    }
+    
+    primary_type = question_analysis.get("primary_type", "")
+    if primary_type in dataset_mapping:
+        relevant_datasets.update(dataset_mapping[primary_type])
+    
+    # Keyword-based refinement
     for keyword, datasets in DATASET_RELEVANCE.items():
         if keyword in query_lower:
             relevant_datasets.update(datasets)
     
-    # If no specific matches, return all datasets for comprehensive analysis
+    # If no specific matches but agriculture-related, use comprehensive analysis
     if not relevant_datasets:
-        # Check if it's agriculture-related at all
         agriculture_keywords = [
             "farm", "crop", "plant", "grow", "harvest", "agriculture", "farming",
             "field", "soil", "seed", "fertilizer", "pest", "yield", "livestock",
@@ -695,16 +1113,103 @@ def determine_relevant_nasa_datasets(query: str) -> List[str]:
         ]
         
         if any(keyword in query_lower for keyword in agriculture_keywords):
-            # Return all datasets for comprehensive agricultural analysis
-            relevant_datasets = {"POWER", "MODIS", "LANDSAT", "GLDAS", "GRACE"}
+            # Use all datasets for comprehensive analysis
+            relevant_datasets = {"POWER", "MODIS", "LANDSAT", "GLDAS", "GRACE"}  
     
     return list(relevant_datasets)
+
+def get_specialized_knowledge_context(question_analysis: Dict, query: str) -> str:
+    """
+    Provide specialized knowledge context based on question classification
+    """
+    primary_type = question_analysis.get("primary_type", "")
+    context = []
+    
+    if primary_type == "DISEASE_DIAGNOSIS":
+        # Add relevant disease information
+        query_lower = query.lower()
+        relevant_diseases = []
+        for disease, info in DISEASE_DATABASE.items():
+            if any(symptom in query_lower for symptom in [disease, info.get("pathogen", "").lower()]):
+                relevant_diseases.append(f"**{disease.title()}**: {info.get('symptoms', '')}")
+        
+        if relevant_diseases:
+            context.append("**DISEASE REFERENCE DATABASE:**")
+            context.extend(relevant_diseases[:3])  # Limit to top 3 matches
+    
+    elif primary_type == "CROP_MANAGEMENT":
+        # Add relevant crop information
+        query_lower = query.lower()
+        relevant_crops = []
+        for crop, info in CROP_DATABASE.items():
+            if crop in query_lower:
+                relevant_crops.append(f"**{crop.title()}**: Growth stages: {', '.join(info.get('growth_stages', [])[:4])}")
+                relevant_crops.append(f"• Optimal pH: {info.get('soil_pH', 'N/A')}, Temperature: {info.get('temperature', 'N/A')}")
+        
+        if relevant_crops:
+            context.append("**CROP REFERENCE DATABASE:**")
+            context.extend(relevant_crops[:4])  # Limit output
+    
+    elif primary_type == "SOIL_HEALTH":
+        context.append("**SOIL ANALYSIS FRAMEWORK:**")
+        context.append("• **pH Management**: Acidic (<6.0) vs Alkaline (>7.5) soil treatments")
+        context.append("• **Nutrient Deficiencies**: N (yellowing), P (purple leaves), K (leaf burn)")
+        context.append("• **Organic Matter**: Target 3-5% for optimal soil health")
+        context.append("• **Soil Testing**: Annual testing recommended for precision management")
+    
+    elif primary_type == "GOVERNMENT_POLICY":
+        context.append("**AGRICULTURAL POLICY FRAMEWORK:**")
+        context.append("• **Subsidy Programs**: Input subsidies, credit schemes, insurance coverage")
+        context.append("• **Eligibility Criteria**: Land size limits, crop selection requirements")
+        context.append("• **Application Process**: Documentation, verification, disbursement timeline")
+        context.append("• **Implementation Agencies**: Extension offices, agricultural banks, cooperatives")
+    
+    return "\n".join(context) if context else ""
 
 def is_nasa_relevant_query(query: str) -> bool:
     """
     Determine if a query would benefit from NASA data integration.
     """
     return len(determine_relevant_nasa_datasets(query)) > 0
+
+def get_enhanced_search_strategy(question_analysis: Dict, query: str) -> List[str]:
+    """
+    Determine optimal search strategy based on question analysis
+    """
+    primary_type = question_analysis.get("primary_type", "")
+    complexity = question_analysis.get("complexity", "INTERMEDIATE")
+    
+    search_queries = []
+    
+    if primary_type == "ECONOMICS_MARKET":
+        search_queries.extend([
+            f"{query} agricultural market prices",
+            f"farming profitability {query}",
+            "agricultural economics research"
+        ])
+    elif primary_type == "TECHNOLOGY":
+        search_queries.extend([
+            f"agricultural technology {query}",
+            f"precision farming {query}",
+            "modern farming equipment"
+        ])
+    elif primary_type == "GOVERNMENT_POLICY":
+        search_queries.extend([
+            f"agricultural subsidies {query}",
+            f"farming support programs {query}",
+            "agricultural policy updates"
+        ])
+    elif complexity == "ADVANCED":
+        search_queries.extend([
+            f"agricultural research {query}",
+            f"farming science {query}",
+            "agricultural studies latest"
+        ])
+    else:
+        # Standard search approach
+        search_queries.append(query)
+    
+    return search_queries[:2]  # Limit to 2 searches for efficiency
 
 # --- Memory ---
 chat_memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
@@ -1022,14 +1527,21 @@ This system combines **NASA datasets** with agricultural expertise for maximum a
             "nasaDataUsed": []
         }
 
+    # Intelligent question analysis
+    question_analysis = classify_agricultural_question(translated_query)
+    
     # Check if NASA data would be valuable for this query
     relevant_datasets = determine_relevant_nasa_datasets(translated_query)
     use_nasa_data = len(relevant_datasets) > 0
     nasa_data_text = ""
     nasa_datasets_used = []
     
+    # Get specialized knowledge context
+    specialized_context = get_specialized_knowledge_context(question_analysis, translated_query)
+    
     # Debug output
     print(f"Chat Debug: Query='{translated_query}'")
+    print(f"Chat Debug: Question type={question_analysis.get('primary_type')}, Complexity={question_analysis.get('complexity')}")
     print(f"Chat Debug: Location lat={lat}, lon={lon}, name='{location_name}'")
     print(f"Chat Debug: Relevant datasets={relevant_datasets}")
     print(f"Chat Debug: Use NASA data={use_nasa_data}")
@@ -1089,9 +1601,9 @@ This system combines **NASA datasets** with agricultural expertise for maximum a
             print(f"NASA datasets attempted: {relevant_datasets}")
             print(f"NASA datasets successfully used: {nasa_datasets_used}")
             
-            # Analyze comprehensive NASA data
+            # Analyze comprehensive NASA data with question context
             if nasa_results:
-                comprehensive_insights = analyze_comprehensive_nasa_data(nasa_results)
+                comprehensive_insights = analyze_comprehensive_nasa_data(nasa_results, question_analysis)
                 if comprehensive_insights:
                     nasa_data_text = f"""
 
@@ -1102,76 +1614,114 @@ This system combines **NASA datasets** with agricultural expertise for maximum a
         except Exception as e:
             print(f"NASA data fetch error: {e}")
 
-    # Prepare the formatted prompt
+    # Prepare the enhanced intelligent prompt
     prompt = f"""
-You are RootSource AI, an expert and helpful AI assistant specialized in farming and agriculture.
-Your mission is to provide the most accurate, concise, and actionable answers to user questions.
+You are RootSource AI, the world's most advanced AI assistant for agriculture and farming. You combine cutting-edge agricultural science, real-time NASA satellite data, and practical farming expertise to provide the most accurate, intelligent, and actionable advice.
 
-**IMPORTANT RULES:**
-1. **Domain Restriction:**
-   - Only answer questions strictly related to agriculture.
-   - If a user's query is not related to agriculture, respond exactly: "Please ask questions related to agriculture only."
+**CORE INTELLIGENCE FRAMEWORK:**
 
-2. **Answering Style:**
-   - First, carefully analyze and understand the user's query.
-   - Respond clearly, concisely, and factually, with step-by-step reasoning if needed.
-   - Prioritize practical, farmer-friendly, and evidence-based advice.
+1. **Expert Agricultural Knowledge Base:**
+   - Crop Science: Growth patterns, varieties, genetics, breeding, yield optimization
+   - Soil Science: Chemistry, biology, physics, fertility, conservation practices
+   - Plant Pathology: Disease identification, prevention, biological/chemical control
+   - Entomology: Pest identification, integrated pest management, beneficial insects
+   - Agronomy: Field management, rotation systems, sustainable practices
+   - Agricultural Engineering: Irrigation, machinery, post-harvest technology
+   - Climate Science: Weather patterns, climate change impacts, adaptation strategies
+   - Economics: Market analysis, cost optimization, profit maximization
 
-3. **Data & Intelligence:**
-   - Automatically use ALL relevant NASA datasets: POWER (climate), MODIS (vegetation), LANDSAT (crops), GLDAS (soil/hydrology), GRACE (groundwater).
-   - Combine multiple NASA datasets with other trusted agricultural sources.
-   - Ensure results are context-aware, accurate, and personalized to user location.
-   - Provide the most comprehensive and globally informed agricultural insights.
+2. **Advanced Problem-Solving Process:**
+   - **Step 1**: Analyze the question type (crop management, disease diagnosis, economic planning, etc.)
+   - **Step 2**: Consider location-specific factors (climate zone, soil type, local practices)
+   - **Step 3**: Integrate NASA satellite data and weather patterns
+   - **Step 4**: Apply scientific principles and evidence-based recommendations
+   - **Step 5**: Provide actionable solutions with clear implementation steps
+   - **Step 6**: Include risk assessment and alternative approaches
 
-4. **Response Format:**
-   - Start with your name: "**RootSource AI** - Your Expert Agriculture Assistant"
-   - Provide clear, well-structured responses using proper formatting
+3. **Multi-Dimensional Analysis:**
+   - **Technical**: Scientific accuracy and latest research findings
+   - **Practical**: Real-world applicability and farmer-friendly solutions
+   - **Economic**: Cost-benefit analysis and profitability considerations
+   - **Environmental**: Sustainability and long-term ecological impact
+   - **Temporal**: Timing considerations and seasonal planning
+   - **Regional**: Local climate, soil conditions, and agricultural practices
 
-5. **Search Strategy:**
-   - Use available tools (Wikipedia, Arxiv, DuckDuckGo) strategically for specific information
-   - Maximum 3 searches per query to maintain efficiency
-   - If you know the answer confidently, respond directly without searching
+4. **Intelligent Question Classification & Response:**
 
-6. **Greetings:** 
-   - For greetings (hi, hello, hey), respond: "Hello! I'm RootSource AI, your expert AI assistant for all things farming and agriculture. How can I assist you today?"
+   **Crop Management Questions**: Provide variety selection, planting schedules, growth monitoring, harvest timing
+   **Disease/Pest Issues**: Offer identification guides, treatment options, prevention strategies
+   **Soil Health Queries**: Include testing recommendations, amendment strategies, fertility programs
+   **Weather/Climate Questions**: Integrate NASA data with farming implications and risk management
+   **Economic/Market Questions**: Provide cost analysis, profit optimization, market timing advice
+   **Technology Questions**: Recommend appropriate tools, equipment, and modern farming techniques
+   **Sustainability Questions**: Focus on organic practices, conservation, and long-term viability
+
+5. **NASA Data Integration Intelligence:**
+   - **POWER**: Climate analysis, growing degree days, frost risk, irrigation scheduling
+   - **MODIS**: Vegetation health monitoring, crop stress detection, yield prediction
+   - **LANDSAT**: Field-level crop analysis, water stress mapping, precision agriculture
+   - **GLDAS**: Soil moisture optimization, drought monitoring, water management
+   - **GRACE**: Groundwater sustainability, long-term water planning, irrigation efficiency
 
 {nasa_data_text}
 
-**User Location:** {location_name if location_name else "Location not detected"}
+**INTELLIGENT QUERY ANALYSIS:**
+• **Question Type**: {question_analysis.get('primary_type', 'General Agriculture')}
+• **Complexity Level**: {question_analysis.get('complexity', 'Intermediate')}
+• **Urgency**: {question_analysis.get('urgency', 'Normal')}
+• **User Location**: {location_name if location_name else "Location not detected"}
 
 {get_country_agricultural_context(location_name)}
 
-Question: {translated_query}
+{specialized_context}
 
-Your goal: Be the world's most intelligent and powerful AI application for agriculture, delivering maximum accuracy, reliability, and value to every user.
+**FARMER'S QUESTION:** "{translated_query}"
 
-CRITICAL FORMATTING REQUIREMENTS - FOLLOW EXACTLY:
+**INTELLIGENT RESPONSE REQUIREMENTS:**
 
-1. Always start with a bold heading: **Topic Name**
-2. Leave a blank line after headings
-3. Use **bold text** for key terms and important points  
-4. Create bullet points with • symbol followed by space
-5. Use numbered lists for step-by-step instructions (1. 2. 3. etc)
-6. Separate different sections with blank lines
-7. Make responses well-structured and easy to read
+1. **Comprehensive Analysis**: Consider all relevant factors (technical, economic, environmental, practical)
+2. **Evidence-Based**: Reference scientific studies, proven practices, and data-driven insights
+3. **Actionable Solutions**: Provide specific steps, timelines, and measurable outcomes
+4. **Risk Assessment**: Include potential challenges and mitigation strategies
+5. **Alternative Approaches**: Offer multiple solutions with pros/cons analysis
+6. **Follow-up Guidance**: Suggest monitoring methods and adjustment strategies
 
-EXAMPLE FORMAT:
-**Crop Rotation Benefits**
+**DOMAIN RESTRICTION:**
+- Only answer agriculture, farming, and closely related topics (gardening, livestock, agricultural technology, food production)
+- For non-agricultural queries, respond: "Please ask questions related to agriculture, farming, or food production only."
 
-**Key Advantages:**
-• **Soil Health**: Improves nutrient balance and structure
-• **Pest Control**: Breaks pest and disease cycles  
-• **Yield Improvement**: Increases long-term productivity
+**RESPONSE STRUCTURE - FOLLOW EXACTLY:**
 
-**Implementation Steps:**
-1. **Plan Your Rotation**: Map out 3-4 year cycles
-2. **Choose Crops**: Select complementary plant families
-3. **Monitor Results**: Track soil health and yields
+**[Topic Title]**
 
-**Additional Tips:**
-Include **legumes** to fix nitrogen and use **cover crops** during off-seasons.
+**Quick Answer:** [One-sentence direct answer]
 
-Now provide a comprehensive, well-formatted answer about the farming topic."""
+**Detailed Analysis:**
+• **Key Factor 1**: Explanation with scientific basis
+• **Key Factor 2**: Practical considerations and implementation
+• **Key Factor 3**: Economic or efficiency aspects
+
+**Recommended Actions:**
+1. **Immediate Steps**: What to do now
+2. **Short-term (1-4 weeks)**: Planning and preparation
+3. **Long-term (season/year)**: Strategic improvements
+
+**Success Indicators:**
+• What to monitor and measure
+• Expected outcomes and timelines
+• When to adjust strategies
+
+**Additional Considerations:**
+• Risk factors and mitigation
+• Alternative approaches
+• Seasonal or timing considerations
+
+**Expert Tips:**
+• Professional insights and best practices
+• Cost-saving opportunities
+• Efficiency improvements
+
+Now provide the most intelligent, comprehensive, and valuable agricultural guidance possible."""
 
     max_retries = 2
     for attempt in range(max_retries):
@@ -1185,8 +1735,12 @@ Now provide a comprehensive, well-formatted answer about the farming topic."""
             elif response_text and len(response_text.strip()) > 10:
                 break
             else:
-                # If direct response is too short and we have API key, try with search
-                response_text = get_search_enhanced_response(translated_query)
+                # If direct response is too short and we have API key, try with enhanced search
+                if question_analysis.get('needs_search', False):
+                    search_queries = get_enhanced_search_strategy(question_analysis, translated_query)
+                    response_text = get_search_enhanced_response(search_queries[0] if search_queries else translated_query)
+                else:
+                    response_text = get_search_enhanced_response(translated_query)
                 if response_text:
                     break
                 else:
