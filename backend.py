@@ -169,12 +169,20 @@ async def get_nasa_power_data(lat: float, lon: float, days_back: int = 30) -> Di
         if NASA_EARTHDATA_TOKEN:
             headers["Authorization"] = f"Bearer {NASA_EARTHDATA_TOKEN}"
         
+        print(f"NASA POWER: Making request to {url}")
+        print(f"NASA POWER: Headers keys: {list(headers.keys())}")
+        
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(url, headers=headers)
+            print(f"NASA POWER: Response status: {response.status_code}")
+            
             if response.status_code == 200:
                 data = response.json()
+                print(f"NASA POWER: Response keys: {list(data.keys()) if data else 'No data'}")
+                
                 # Verify we have actual data
                 if data and "properties" in data and "parameter" in data["properties"]:
+                    print(f"NASA POWER: SUCCESS - Valid data structure found")
                     return {
                         "success": True,
                         "dataset": "POWER",
@@ -183,14 +191,21 @@ async def get_nasa_power_data(lat: float, lon: float, days_back: int = 30) -> Di
                         "date_range": f"{start_str} to {end_str}",
                         "parameters": ["temperature", "precipitation", "humidity", "solar_radiation"]
                     }
+                else:
+                    print(f"NASA POWER: FAILURE - Invalid data structure")
+                    if data and "properties" in data:
+                        print(f"NASA POWER: Properties keys: {list(data['properties'].keys())}")
             elif response.status_code == 401:
                 print(f"NASA POWER API authentication failed: {response.status_code}")
             elif response.status_code == 403:
                 print(f"NASA POWER API access forbidden: {response.status_code}")
             else:
                 print(f"NASA POWER API error: HTTP {response.status_code}")
+                print(f"NASA POWER: Response text (first 500 chars): {response.text[:500]}")
     except Exception as e:
         print(f"NASA POWER API error: {e}")
+        import traceback
+        traceback.print_exc()
     
     return {"success": False, "dataset": "POWER", "error": "Unable to fetch climate data"}
 
