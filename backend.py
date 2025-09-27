@@ -114,8 +114,15 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
     Returns (latitude, longitude, location_name) or (None, None, None) if detection fails.
     """
     try:
-        # Get client IP
-        client_ip = request.client.host
+        # Get client IP, checking for proxy headers first
+        client_ip = (
+            request.headers.get("x-forwarded-for", "").split(",")[0].strip() or
+            request.headers.get("x-real-ip", "").strip() or
+            request.headers.get("cf-connecting-ip", "").strip() or
+            request.client.host
+        )
+        
+        print(f"Detecting location for IP: {client_ip}")
         
         # Handle localhost/development cases only
         if client_ip in ["127.0.0.1", "localhost", "::1"]:
@@ -1132,6 +1139,11 @@ async def debug(request: Request):
         "env_vars_found": list(env_vars.keys()),
         "total_env_vars": len(os.environ),
         "client_ip": request.client.host,
+        "headers": {
+            "x-forwarded-for": request.headers.get("x-forwarded-for"),
+            "x-real-ip": request.headers.get("x-real-ip"),
+            "cf-connecting-ip": request.headers.get("cf-connecting-ip"),
+        },
         "detected_location": {
             "latitude": lat,
             "longitude": lon,
