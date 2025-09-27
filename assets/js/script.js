@@ -293,7 +293,7 @@ $(document).ready(function() {
                 if (speech && speech.recognition) {
                     speech.recognition.start();
                 }
-            }, 500);
+            }, 300);
 
             $('#mic-status').removeClass('active').text('Microphone is off');
         }

@@ -1385,26 +1385,117 @@ def get_llm():
     return _cached_llm
 
 def format_response(text):
-    """Convert markdown-style text to HTML"""
+    """
+    World-class HTML formatting system with advanced typography and responsive design
+    Supports multiple languages, semantic structure, and accessibility
+    """
     if not text:
         return text
     
-    # Convert **bold** to HTML
-    text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</strong>', text)
+    # Preserve original for debugging
+    original_text = text
     
-    # Convert bullet points
-    text = re.sub(r'^• (.+)$', r'<div style="margin: 8px 0; padding-left: 20px; position: relative; line-height: 1.6;"><span style="position: absolute; left: 0; color: #2ecc71; font-weight: bold;">•</span>\1</div>', text, flags=re.MULTILINE)
+    # Pre-processing: normalize whitespace and line endings
+    text = re.sub(r'\r\n|\r', '\n', text)  # Normalize line endings
+    text = re.sub(r'[ \t]+', ' ', text)    # Normalize spaces
     
-    # Convert numbered lists
-    text = re.sub(r'^(\d+)\. (.+)$', r'<div style="margin: 8px 0; padding-left: 20px; position: relative; line-height: 1.6;"><span style="position: absolute; left: 0; color: #2ecc71; font-weight: bold;">\1.</span>\2</div>', text, flags=re.MULTILINE)
+    # Advanced heading detection (supports multiple levels and languages)
+    # H1: **Main Title** at start of line or after double newline
+    text = re.sub(r'(?:^|\n\n)\*\*([^*\n]+)\*\*(?=\n|$)', 
+                  r'<h1 class="response-title" style="color: #2c5530; font-size: 1.5em; font-weight: 700; margin: 20px 0 16px 0; padding: 0; line-height: 1.3; border-bottom: 2px solid #2ecc71;">\1</h1>', text)
     
-    # Convert line breaks
-    text = text.replace('\n', '<br>')
+    # H2: **Section Headers** with keywords
+    section_keywords = r'(?:Quick Answer|Detailed Analysis|Recommended Actions|Success Indicators|Additional Considerations|Expert Tips|Problem Analysis|Treatment|Prevention|Immediate Actions|Long-term|Follow-up|Key Features|Benefits|Solutions|Steps|Guidelines|Important)'
+    text = re.sub(rf'\*\*({section_keywords}[^*]*?)\*\*', 
+                  r'<h2 class="response-section" style="color: #2ecc71; font-size: 1.25em; font-weight: 650; margin: 18px 0 12px 0; padding: 8px 12px; background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05)); border-left: 4px solid #2ecc71; border-radius: 4px;">\1</h2>', text)
     
-    # Clean up multiple <br> tags
+    # H3: **Sub-section headers** - remaining bold text
+    text = re.sub(r'\*\*([^*\n]+?)\*\*', 
+                  r'<h3 class="response-subsection" style="color: #27ae60; font-size: 1.1em; font-weight: 600; margin: 14px 0 8px 0; padding: 4px 8px; background: rgba(46, 204, 113, 0.08); border-radius: 3px;">\1</h3>', text)
+    
+    # Advanced list processing with nested support
+    # Process numbered lists with sub-items
+    text = re.sub(r'^(\s*)(\d+)\.\s+\*\*([^*]+)\*\*:\s*(.+)$', 
+                  r'\1<div class="numbered-item-header" style="margin: 12px 0 6px 0; padding-left: \1px;"><span class="number-badge" style="display: inline-block; background: #2ecc71; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; font-weight: 600; margin-right: 8px; font-size: 0.9em;">\2</span><strong style="color: #2c5530; font-weight: 600;">\3:</strong> <span style="color: #2c3e50;">\4</span></div>', text, flags=re.MULTILINE)
+    
+    # Regular numbered lists
+    text = re.sub(r'^(\s*)(\d+)\.\s+(.+)$', 
+                  r'\1<div class="numbered-item" style="margin: 8px 0; padding-left: \1px; position: relative; line-height: 1.6;"><span class="number-marker" style="display: inline-block; color: #2ecc71; font-weight: 700; margin-right: 8px; min-width: 20px;">\2.</span><span style="color: #2c3e50;">\3</span></div>', text, flags=re.MULTILINE)
+    
+    # Enhanced bullet points with different types
+    # Primary bullets (•)
+    text = re.sub(r'^(\s*)•\s+\*\*([^*]+)\*\*:\s*(.+)$', 
+                  r'\1<div class="bullet-item-header" style="margin: 10px 0 4px 0; padding-left: \1px; position: relative; line-height: 1.6;"><span class="bullet-icon" style="position: absolute; left: 0; color: #2ecc71; font-weight: 900; font-size: 1.2em;">•</span><div style="padding-left: 20px;"><strong style="color: #2c5530; font-weight: 600;">\2:</strong> <span style="color: #2c3e50;">\3</span></div></div>', text, flags=re.MULTILINE)
+    
+    # Regular bullet points
+    text = re.sub(r'^(\s*)•\s+(.+)$', 
+                  r'\1<div class="bullet-item" style="margin: 6px 0; padding-left: \1px; position: relative; line-height: 1.6;"><span class="bullet-icon" style="position: absolute; left: 0; color: #2ecc71; font-weight: 900;">•</span><div style="padding-left: 20px; color: #2c3e50;">\2</div></div>', text, flags=re.MULTILINE)
+    
+    # Secondary bullets (-)
+    text = re.sub(r'^(\s*)-\s+(.+)$', 
+                  r'\1<div class="sub-bullet-item" style="margin: 4px 0; padding-left: \1px; position: relative; line-height: 1.5;"><span class="sub-bullet-icon" style="position: absolute; left: 0; color: #27ae60; font-weight: 600;">−</span><div style="padding-left: 20px; color: #34495e; font-size: 0.95em;">\2</div></div>', text, flags=re.MULTILINE)
+    
+    # Code blocks and technical terms
+    text = re.sub(r'`([^`]+)`', 
+                  r'<code style="background: #f8f9fa; color: #e74c3c; padding: 2px 6px; border-radius: 3px; font-family: \'Courier New\', monospace; font-size: 0.9em; border: 1px solid #e9ecef;">\1</code>', text)
+    
+    # Emphasis and highlights
+    text = re.sub(r'\*([^*\s][^*]*[^*\s])\*', 
+                  r'<em style="color: #2980b9; font-style: italic; font-weight: 500;">\1</em>', text)
+    
+    # Warning/Important text
+    text = re.sub(r'⚠️\s*([^⚠️\n]+)', 
+                  r'<div class="warning-text" style="background: linear-gradient(135deg, rgba(230, 126, 34, 0.1), rgba(230, 126, 34, 0.05)); border-left: 4px solid #e67e22; padding: 12px 16px; margin: 12px 0; border-radius: 4px; font-weight: 500;"><span style="color: #e67e22; font-size: 1.1em;">⚠️</span> <span style="color: #d35400;">\1</span></div>', text)
+    
+    # Success/Check items
+    text = re.sub(r'✅\s*([^✅\n]+)', 
+                  r'<div class="success-text" style="background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05)); border-left: 4px solid #2ecc71; padding: 10px 14px; margin: 10px 0; border-radius: 4px;"><span style="color: #2ecc71; font-size: 1.1em;">✅</span> <span style="color: #27ae60; font-weight: 500;">\1</span></div>', text)
+    
+    # Information boxes
+    text = re.sub(r'ℹ️\s*([^ℹ️\n]+)', 
+                  r'<div class="info-text" style="background: linear-gradient(135deg, rgba(52, 152, 219, 0.1), rgba(52, 152, 219, 0.05)); border-left: 4px solid #3498db; padding: 10px 14px; margin: 10px 0; border-radius: 4px;"><span style="color: #3498db; font-size: 1.1em;">ℹ️</span> <span style="color: #2980b9; font-weight: 500;">\1</span></div>', text)
+    
+    # Scientific notation and measurements
+    text = re.sub(r'(\d+(?:\.\d+)?)\s*(°C|°F|%|mm|cm|m|km|kg|g|L|ml|ha|pH)', 
+                  r'<span class="measurement" style="font-weight: 600; color: #8e44ad; background: rgba(142, 68, 173, 0.1); padding: 1px 4px; border-radius: 2px;">\1\2</span>', text)
+    
+    # Chemical formulas and scientific terms
+    text = re.sub(r'\b([A-Z][a-z]?(?:[₀-₉]+|[0-9]+)*(?:[A-Z][a-z]?(?:[₀-₉]+|[0-9]+)*)*)\b', 
+                  lambda m: f'<span class="chemical" style="font-family: \'Times New Roman\', serif; font-weight: 500; color: #9b59b6;">{m.group(1)}</span>' if len(m.group(1)) <= 10 and any(c.isdigit() or c in '₀₁₂₃₄₅₆₇₈₉' for c in m.group(1)) else m.group(1), text)
+    
+    # Paragraph processing with smart spacing
+    paragraphs = text.split('\n\n')
+    formatted_paragraphs = []
+    
+    for para in paragraphs:
+        if para.strip():
+            # Skip if already contains HTML tags (headings, lists, etc.)
+            if not re.search(r'<(?:div|h[1-6]|span)', para):
+                # Regular paragraph
+                para = f'<p style="margin: 12px 0; line-height: 1.7; color: #2c3e50; text-align: justify;">{para.strip()}</p>'
+            formatted_paragraphs.append(para)
+    
+    text = '\n\n'.join(formatted_paragraphs)
+    
+    # Convert remaining single line breaks to <br> but preserve structure
+    text = re.sub(r'(?<!</(?:div|h[1-6]|p)>)\n(?!<(?:div|h[1-6]|p))', '<br>', text)
+    
+    # Clean up excessive spacing
     text = re.sub(r'(<br>\s*){3,}', '<br><br>', text)
+    text = re.sub(r'(\s*<br>\s*){2,}(?=<(?:h[1-6]|div))', '<br>', text)
     
-    return text
+    # Add responsive wrapper
+    formatted_text = f'''<div class="response-content" style="
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #2c3e50;
+        max-width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    ">{text}</div>'''
+    
+    return formatted_text
 
 def get_direct_response(query):
     """Get direct response from LLM without agent complexity"""
