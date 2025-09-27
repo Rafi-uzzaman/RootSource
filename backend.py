@@ -1121,6 +1121,81 @@ async def debug():
         "total_env_vars": len(os.environ)
     }
 
+@app.get("/test-nasa-debug")
+async def test_nasa_debug():
+    """
+    Direct test of NASA POWER API to debug Railway deployment issues
+    """
+    try:
+        lat, lon = 40.7128, -74.0060
+        days_back = 7
+        
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days_back)
+        
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+        
+        params = ["T2M", "T2M_MAX", "T2M_MIN", "PRECTOTCORR"]
+        
+        url = f"{NASA_POWER_BASE_URL}?parameters={','.join(params)}&community=SB&longitude={lon}&latitude={lat}&start={start_str}&end={end_str}&format=JSON"
+        
+        headers = {}
+        if NASA_API_KEY:
+            headers["X-API-Key"] = NASA_API_KEY
+        
+        result = {
+            "test_info": {
+                "url": url,
+                "headers": list(headers.keys()),
+                "date_range": f"{start_str} to {end_str}",
+                "coordinates": {"lat": lat, "lon": lon},
+                "nasa_api_key_present": bool(NASA_API_KEY),
+                "nasa_api_key_length": len(NASA_API_KEY) if NASA_API_KEY else 0
+            },
+            "status": "attempting_request",
+            "success": False
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers)
+            
+            result["http_status"] = response.status_code
+            result["response_headers"] = dict(response.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                result["success"] = True
+                result["data_keys"] = list(data.keys()) if data else []
+                
+                if data and "properties" in data and "parameter" in data["properties"]:
+                    result["nasa_parameters"] = list(data["properties"]["parameter"].keys())
+                    result["valid_structure"] = True
+                    # Sample one day of data
+                    first_param_name = list(data["properties"]["parameter"].keys())[0]
+                    first_param_data = data["properties"]["parameter"][first_param_name]
+                    result["sample_data"] = {
+                        first_param_name: dict(list(first_param_data.items())[:3])  # First 3 days
+                    }
+                else:
+                    result["valid_structure"] = False
+                    result["error"] = "Invalid data structure"
+                    result["data_sample"] = str(data)[:500] if data else "No data"
+            else:
+                result["error"] = f"HTTP {response.status_code}"
+                result["response_text"] = response.text[:500]
+                
+        return result
+        
+    except Exception as e:
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=HOST, port=PORT)
