@@ -1421,22 +1421,6 @@ def format_response(text):
     # Convert blockquotes >
     text = re.sub(r'^> (.+)$', r'<blockquote style="border-left: 4px solid #2ecc71; margin: 8px 0; padding: 8px 16px; background: rgba(46, 204, 113, 0.05); font-style: italic;">\1</blockquote>', text, flags=re.MULTILINE)
     
-    # Add responsive wrapper with improved styling
-    text = f'''<div style="
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-        font-size: 14px;
-        line-height: 1.6;
-        color: #2c3e50;
-        max-width: 100%;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        margin: 0;
-        padding: 16px;
-        background: #ffffff;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    ">{text}</div>'''
-    
     # Convert line breaks
     text = text.replace('\n', '<br>')
     
