@@ -1228,21 +1228,88 @@ def load_llm():
 
 # --- Translation ---
 def translate_to_english(text):
+    """Translate text to English with robust language detection"""
     try:
+        if not text or not text.strip():
+            return text, "unknown"
+        
+        # Detect language
         detected_lang = detect(text)
+        print(f"Detected language: {detected_lang}")
+        
         if detected_lang == "en":
             return text, "en"
-        translated_text = GoogleTranslator(source=detected_lang, target="en").translate(text)
-        return translated_text, detected_lang
-    except:
+        
+        # Translate to English
+        translator = GoogleTranslator(source=detected_lang, target="en")
+        translated_text = translator.translate(text)
+        
+        if translated_text and translated_text.strip():
+            print(f"Translation to English successful: {len(translated_text)} characters")
+            return translated_text, detected_lang
+        else:
+            print("Translation to English failed, using original")
+            return text, detected_lang
+            
+    except Exception as e:
+        print(f"Translation to English error: {str(e)}")
         return text, "unknown"
 
 def translate_back(text, target_lang):
+    """Translate text back to target language with robust error handling"""
     try:
-        if target_lang == "en":
+        if not text or not text.strip():
             return text
-        return GoogleTranslator(source="en", target=target_lang).translate(text)
-    except:
+            
+        if target_lang == "en" or target_lang == "unknown":
+            return text
+        
+        # Language code mapping for common issues
+        lang_mapping = {
+            "zh-cn": "zh",
+            "zh-tw": "zh",
+            "pt-br": "pt",
+            "es-es": "es",
+            "en-us": "en",
+            "en-gb": "en"
+        }
+        
+        # Normalize target language
+        normalized_lang = lang_mapping.get(target_lang.lower(), target_lang)
+        
+        # Skip translation if already in target language (basic check)
+        if normalized_lang in ['zh', 'ja', 'ko', 'th', 'ar', 'hi', 'bn', 'ru']:
+            # Check if text already contains characters from target language
+            lang_patterns = {
+                'zh': r'[\u4e00-\u9fff]',
+                'ja': r'[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff]',
+                'ko': r'[\uac00-\ud7af]',
+                'th': r'[\u0e00-\u0e7f]',
+                'ar': r'[\u0600-\u06ff]',
+                'hi': r'[\u0900-\u097f]',
+                'bn': r'[\u0980-\u09ff]',
+                'ru': r'[\u0400-\u04ff]'
+            }
+            
+            if normalized_lang in lang_patterns:
+                import re
+                if re.search(lang_patterns[normalized_lang], text):
+                    print(f"Text already contains {normalized_lang} characters, skipping translation")
+                    return text
+        
+        print(f"Translating from English to {normalized_lang}")
+        translator = GoogleTranslator(source="en", target=normalized_lang)
+        translated = translator.translate(text)
+        
+        if translated and translated.strip():
+            print(f"Translation successful: {len(translated)} characters")
+            return translated
+        else:
+            print("Translation returned empty result, using original")
+            return text
+            
+    except Exception as e:
+        print(f"Translation error (en -> {target_lang}): {str(e)}")
         return text
 
 # Cache the LLM globally for better performance
@@ -1456,10 +1523,13 @@ async def chat(req: ChatRequest, request: Request):
         parts.append("• Monitor for fungal disease if humidity and rainfall are elevated.")
         used_datasets = ["POWER"] if (power_recent and power_recent.get('success')) else []
         response_text = "\n".join(parts)
-        translate_lang = translate_back(response_text, original_lang)
-        formatted_response = format_response(translate_lang)
+        # Add dataset attribution BEFORE translation
         if used_datasets:
-            formatted_response += format_response(f"\n\n**NASA dataset(s) used:** {', '.join(used_datasets)}")
+            response_text += f"\n\n**NASA dataset(s) used:** {', '.join(used_datasets)}"
+        # Translate back to original language FIRST
+        translate_lang = translate_back(response_text, original_lang)
+        # Then format with HTML
+        formatted_response = format_response(translate_lang)
         return {
             "reply": formatted_response,
             "detectedLang": original_lang,
@@ -1754,25 +1824,25 @@ Now provide the most intelligent, comprehensive, and valuable agricultural guida
     else:
         response_text = "I'm sorry, I'm experiencing high demand right now. Please try again in a moment."
 
-    # Format and translate back
-    translate_lang = translate_back(response_text, original_lang)
-    formatted_response = format_response(translate_lang)
-    
-    # Add NASA dataset attribution if used
+    # Add NASA dataset attribution BEFORE translation
     if nasa_datasets_used:
         dataset_attribution = f"\n\n**NASA dataset(s) used:** {', '.join(nasa_datasets_used)}"
-        formatted_response += format_response(dataset_attribution)
+        response_text += dataset_attribution
     elif use_nasa_data and relevant_datasets:
         # If NASA data was attempted but not successfully retrieved, show specific error
         attempted_datasets = ', '.join(relevant_datasets)
         dataset_attribution = f"\n\n**NASA dataset(s) used:** None ({attempted_datasets} temporarily unavailable - using fallback analysis)"
-        formatted_response += format_response(dataset_attribution)
+        response_text += dataset_attribution
     elif use_nasa_data:
         # Generic fallback message
         dataset_attribution = f"\n\n**NASA dataset(s) used:** Analysis completed using integrated agricultural databases"
-        formatted_response += format_response(dataset_attribution)
+        response_text += dataset_attribution
     
-    final_response = formatted_response
+    # Translate back to original language FIRST
+    translated_response = translate_back(response_text, original_lang)
+    
+    # Then format with HTML
+    final_response = format_response(translated_response)
     return {
         "reply": final_response, 
         "detectedLang": original_lang, 

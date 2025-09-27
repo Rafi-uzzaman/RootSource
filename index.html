@@ -244,11 +244,8 @@ $(document).ready(function () {
         `);
     }
 
-    // Since backend now returns formatted HTML, just return it as-is
-    function formatTextToHTML(text) {
-        console.log('Received pre-formatted HTML:', text);
-        return text || '';
-    }
+    // Backend now handles all formatting and translation
+    // Direct display without additional processing
 
     function appendBotMessage(reply, detectedLang = "EN", translatedQuery = "") {
         removeDelayAnimation();
@@ -272,7 +269,7 @@ $(document).ready(function () {
                         ${isVoiceConversation ? '<span class="voice-conversation-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v4a3.75 3.75 0 1 1-7.5 0v-4Z" /><path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291A6.751 6.751 0 0 1 5.25 12.75v-1.5A.75.75 0 0 1 6 10.5Z" /></svg>Voice</span>' : ''}
                     </div>
                     <div class="chat-bubble">
-                        <div style="text-align: justify; line-height: 1.6;" class="formatted-content">${formatTextToHTML(reply)}</div>
+                        <div style="text-align: justify; line-height: 1.6;" class="formatted-content">${reply}</div>
                     </div>
                 </div>
             </div>
@@ -387,56 +384,8 @@ $(document).ready(function () {
                 }
             }
             
-            // Detect input language and add response language request
+            // Send message directly to backend for processing
             let messageToSend = promptText;
-            const languagePatterns = {
-                'bn': /[\u0980-\u09FF]/, // Bengali
-                'hi': /[\u0900-\u097F]/, // Hindi (Devanagari)
-                'ur': /[\u0600-\u06FF]/, // Urdu (Arabic script)
-                'ar': /[\u0600-\u06FF]/, // Arabic
-                'es': /[ñáéíóúü¿¡]/i,   // Spanish indicators
-                'fr': /[àâäçéèêëïîôùûüÿ]/i, // French indicators
-                'pt': /[ãáàâçéêíóôõú]/i, // Portuguese indicators
-                'it': /[àèéìíîòóùú]/i,   // Italian indicators
-                'de': /[äöüß]/i,         // German indicators
-                'ru': /[\u0400-\u04FF]/, // Russian (Cyrillic)
-                'zh': /[\u4e00-\u9fff]/, // Chinese
-                'ja': /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff]/, // Japanese
-                'ko': /[\uac00-\ud7af]/, // Korean
-                'th': /[\u0e00-\u0e7f]/  // Thai
-            };
-            
-            let detectedLang = null;
-            for (const [lang, pattern] of Object.entries(languagePatterns)) {
-                if (pattern.test(promptText)) {
-                    detectedLang = lang;
-                    break;
-                }
-            }
-            
-            // Add language-specific response request
-            if (detectedLang) {
-                const responseRequests = {
-                    'bn': ' দয়া করে বাংলায় উত্তর দিন।',
-                    'hi': ' कृपया हिंदी में उत्तर दें।',
-                    'ur': ' براہ کرم اردو میں جواب دیں۔',
-                    'ar': ' يرجى الإجابة بالعربية.',
-                    'es': ' Por favor responde en español.',
-                    'fr': ' Veuillez répondre en français.',
-                    'pt': ' Por favor responda em português.',
-                    'it': ' Per favore rispondi in italiano.',
-                    'de': ' Bitte antworten Sie auf Deutsch.',
-                    'ru': ' Пожалуйста, ответьте на русском языке.',
-                    'zh': ' 请用中文回答。',
-                    'ja': ' 日本語で答えてください。',
-                    'ko': ' 한국어로 답변해 주세요.',
-                    'th': ' กรุณาตอบเป็นภาษาไทย'
-                };
-                
-                if (responseRequests[detectedLang]) {
-                    messageToSend += responseRequests[detectedLang];
-                }
-            }
             
             const response = await fetch(`${API_BASE}/chat`, {
                 method: "POST",
