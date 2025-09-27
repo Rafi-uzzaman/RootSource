@@ -1390,10 +1390,19 @@ def format_response(text):
     if not text:
         return text
     
+    # Remove --- lines (horizontal rules) completely
+    text = re.sub(r'^---.*$', '', text, flags=re.MULTILINE)
+    
+    # Convert ### to h2
+    text = re.sub(r'^### (.+)$', r'<h2 style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</h2>', text, flags=re.MULTILINE)
+    
     # Convert **bold** to HTML
     text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</strong>', text)
     
-    # Convert bullet points
+    # Convert - to bullet points (dash bullet points)
+    text = re.sub(r'^- (.+)$', r'<div style="margin: 8px 0; padding-left: 20px; position: relative; line-height: 1.6;"><span style="position: absolute; left: 0; color: #2ecc71; font-weight: bold;">•</span>\1</div>', text, flags=re.MULTILINE)
+    
+    # Convert • bullet points (keep existing)
     text = re.sub(r'^• (.+)$', r'<div style="margin: 8px 0; padding-left: 20px; position: relative; line-height: 1.6;"><span style="position: absolute; left: 0; color: #2ecc71; font-weight: bold;">•</span>\1</div>', text, flags=re.MULTILINE)
     
     # Convert numbered lists
