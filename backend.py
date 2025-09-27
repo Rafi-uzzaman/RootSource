@@ -901,6 +901,12 @@ This system combines **NASA datasets** with agricultural expertise for maximum a
     nasa_data_text = ""
     nasa_datasets_used = []
     
+    # Debug output
+    print(f"Chat Debug: Query='{translated_query}'")
+    print(f"Chat Debug: Location lat={lat}, lon={lon}, name='{location_name}'")
+    print(f"Chat Debug: Relevant datasets={relevant_datasets}")
+    print(f"Chat Debug: Use NASA data={use_nasa_data}")
+    
     # Fetch comprehensive NASA data if relevant and location is available
     if use_nasa_data and lat is not None and lon is not None:
         try:
