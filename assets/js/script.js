@@ -150,7 +150,6 @@ $(document).ready(function() {
     $('#customAlertClose').click(hideCustomAlert);
     $('#aboutLink').click(showAboutModal);
     $('#aboutModalClose').click(hideAboutModal);
-    $('#voiceSettingsLink').click(toggleVoiceSettings);
 });
 
 // Populate voice/language selector with bn-BD priority and one voice per language
@@ -468,29 +467,3 @@ function showAboutModal() {
 function hideAboutModal() {
     $('#aboutModal').removeClass('visible');
 }
-
-function toggleVoiceSettings() {
-    const alwaysSpeak = localStorage.getItem('alwaysSpeak') === 'true';
-    const newSetting = !alwaysSpeak;
-    localStorage.setItem('alwaysSpeak', newSetting.toString());
-    updateVoiceSettingsUI();
-    
-    if (newSetting) {
-        showCustomAlert('Voice output enabled for all responses! AI will now read all responses aloud.');
-    } else {
-        showCustomAlert('Voice output disabled. AI will only speak when you use voice input.');
-    }
-}
-
-function updateVoiceSettingsUI() {
-    const alwaysSpeak = localStorage.getItem('alwaysSpeak') === 'true';
-    const icon = alwaysSpeak ? '🔊' : '🔇';
-    const title = alwaysSpeak ? 'Voice output enabled for all responses' : 'Voice output only for voice input';
-    $('#voiceSettingsIcon').text(icon);
-    $('#voiceSettingsLink').attr('title', title);
-}
-
-// Initialize voice settings UI on page load
-$(document).ready(function() {
-    updateVoiceSettingsUI();
-});
