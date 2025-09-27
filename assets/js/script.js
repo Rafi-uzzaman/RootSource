@@ -20,10 +20,16 @@ function stopSpeech() {
 
 // Function to speak AI response
 function speakAIResponse(text, detectedLang, forceSpeak = false) {
-    console.log('speakAIResponse called:', { text: text?.length, detectedLang, isVoiceConversation, forceSpeak });
+    // Check sessionStorage for voice conversation persistence (mobile compatibility)
+    const wasVoiceConversation = sessionStorage.getItem('isVoiceConversation') === 'true';
+    if (wasVoiceConversation) {
+        isVoiceConversation = true;
+    }
+    
+    console.log('speakAIResponse called:', { text: text?.length, detectedLang, isVoiceConversation, wasVoiceConversation, forceSpeak });
     
     // Check if we should speak: either voice conversation or user preference for always speaking
-    const shouldSpeak = isVoiceConversation || forceSpeak || localStorage.getItem('alwaysSpeak') === 'true';
+    const shouldSpeak = isVoiceConversation || wasVoiceConversation || forceSpeak || localStorage.getItem('alwaysSpeak') === 'true';
     
     if (!shouldSpeak) {
         console.log('Not a voice conversation and no force speak, skipping speech');
@@ -53,26 +59,62 @@ function speakAIResponse(text, detectedLang, forceSpeak = false) {
 
     // Use detected language or fallback to stored preference
     const selectedOption = $('#lang option:selected');
-    const preferredLang = detectedLang || selectedOption.data('lang') || 'en-US';
+    const preferredLang = detectedLang || selectedOption.data('lang') || 'bn-BD';
     const preferredVoiceName = selectedOption.data('voice') || localStorage.getItem(VOICE_STORAGE_KEY) || '';
 
-    console.log('Voice preferences:', { preferredLang, preferredVoiceName });
+    console.log('Voice preferences:', { preferredLang, preferredVoiceName, detectedLang });
 
-    // Find the best voice for the detected language with a robust fallback strategy
-    let voiceToUse = voices.find(v => v.name === preferredVoiceName && (v.lang || '').startsWith(preferredLang.split('-')[0])) ||
-        voices.find(v => (v.lang || '') === preferredLang) ||
-        voices.find(v => (v.lang || '').startsWith(preferredLang.split('-')[0]));
+    // Enhanced voice selection with Bangla priority
+    let voiceToUse = null;
+    
+    // First, try exact match with preferred voice and language
+    if (preferredVoiceName) {
+        voiceToUse = voices.find(v => v.name === preferredVoiceName && (v.lang || '').startsWith(preferredLang.split('-')[0]));
+    }
+    
+    // Then try exact language match
+    if (!voiceToUse) {
+        voiceToUse = voices.find(v => (v.lang || '') === preferredLang);
+    }
+    
+    // For Bangla, try various Bengali language codes
+    if (!voiceToUse && (preferredLang.startsWith('bn') || detectedLang?.startsWith('bn'))) {
+        voiceToUse = voices.find(v => (v.lang || '').startsWith('bn-BD')) ||
+                     voices.find(v => (v.lang || '').startsWith('bn-IN')) ||
+                     voices.find(v => (v.lang || '').startsWith('bn')) ||
+                     voices.find(v => (v.name || '').toLowerCase().includes('bangla')) ||
+                     voices.find(v => (v.name || '').toLowerCase().includes('bengali'));
+    }
+    
+    // Fallback to language family match
+    if (!voiceToUse) {
+        voiceToUse = voices.find(v => (v.lang || '').startsWith(preferredLang.split('-')[0]));
+    }
 
     console.log('Selected voice:', voiceToUse?.name, voiceToUse?.lang);
 
-    // If no specific voice is found for the language, use default English voice but still proceed
+    // If no specific voice is found for the language, use fallback strategy
     if (!voiceToUse) {
         console.log('No specific voice found, trying fallback voices');
-        voiceToUse = voices.find(v => (v.lang || '').startsWith('en')) || voices[0];
+        
+        // Try to find any available voice, prioritizing common languages
+        voiceToUse = voices.find(v => (v.lang || '').startsWith('en-US')) ||
+                     voices.find(v => (v.lang || '').startsWith('en')) ||
+                     voices.find(v => (v.lang || '').startsWith('hi')) ||
+                     voices[0];
         
         if (!voiceToUse) {
-            const friendlyLangName = new Intl.DisplayNames(['en'], { type: 'language' }).of(preferredLang.split('-')[0]) || preferredLang;
-            const alertMessage = `Could not find a voice for <strong>${friendlyLangName}</strong> to read the response. You may need to install the text-to-speech voice pack for this language in your browser or operating system.`;
+            let langDisplayName = preferredLang;
+            try {
+                langDisplayName = new Intl.DisplayNames(['en'], { type: 'language' }).of(preferredLang.split('-')[0]) || preferredLang;
+            } catch (e) {
+                // Fallback if DisplayNames is not supported
+                if (preferredLang.startsWith('bn')) langDisplayName = 'Bengali';
+                else if (preferredLang.startsWith('hi')) langDisplayName = 'Hindi';
+                else if (preferredLang.startsWith('ur')) langDisplayName = 'Urdu';
+            }
+            
+            const alertMessage = `Could not find a voice for <strong>${langDisplayName}</strong> to read the response. You may need to install the text-to-speech voice pack for this language in your browser or operating system.`;
             
             showCustomAlert(alertMessage);
 
@@ -82,18 +124,36 @@ function speakAIResponse(text, detectedLang, forceSpeak = false) {
             $('#voiceIndicator').removeClass('active');
             $('#voice_search').removeClass('voice-active');
             isVoiceConversation = false;
+            sessionStorage.removeItem('isVoiceConversation');
             return;
+        } else if (preferredLang.startsWith('bn')) {
+            // For Bangla content with non-Bangla voice, show informative message
+            console.log('Using non-Bengali voice for Bengali content, may not sound natural');
         }
     }
 
     // Create and configure speech utterance
     let utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = preferredLang || 'en-US';
+    utterance.lang = preferredLang || 'bn-BD';
     if (voiceToUse) utterance.voice = voiceToUse;
     
-    // Adjust speech rate and pitch for better experience
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
+    // Adjust speech parameters based on language and device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (preferredLang.startsWith('bn')) {
+        // Optimize for Bengali speech
+        utterance.rate = isMobile ? 0.8 : 0.85;
+        utterance.pitch = 1.1;
+    } else if (preferredLang.startsWith('hi') || preferredLang.startsWith('ur')) {
+        // Optimize for Hindi/Urdu speech
+        utterance.rate = isMobile ? 0.8 : 0.9;
+        utterance.pitch = 1.0;
+    } else {
+        // Default for English and other languages
+        utterance.rate = isMobile ? 0.85 : 0.9;
+        utterance.pitch = 1.0;
+    }
+    
     utterance.volume = 1.0;
 
     // Show voice indicator
@@ -112,6 +172,7 @@ function speakAIResponse(text, detectedLang, forceSpeak = false) {
         $('#voice_search').removeClass('voice-active');
         // Reset voice conversation flag after response is complete
         isVoiceConversation = false;
+        sessionStorage.removeItem('isVoiceConversation');
     };
 
     utterance.onerror = (event) => {
@@ -120,6 +181,7 @@ function speakAIResponse(text, detectedLang, forceSpeak = false) {
         $('#voiceIndicator').removeClass('active');
         $('#voice_search').removeClass('voice-active');
         isVoiceConversation = false;
+        sessionStorage.removeItem('isVoiceConversation');
     };
 
     // Stop any current speech and speak the new response
@@ -276,8 +338,9 @@ $(document).ready(function() {
     function checkhSpeach() {
         $('#speakBtn').removeClass('active');
         
-        // Mark this as a voice-initiated conversation
+        // Mark this as a voice-initiated conversation and store persistently
         isVoiceConversation = true;
+        sessionStorage.setItem('isVoiceConversation', 'true');
         
         // Update last voice activity timestamp
         lastVoiceActivity = Date.now();
@@ -288,23 +351,33 @@ $(document).ready(function() {
         }
         
         if (r == 0) {
-            // Wait longer to ensure user has finished speaking
+            // Mobile-friendly approach: shorter initial delay but more reliable
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const initialDelay = isMobile ? 1500 : 2500;
+            const silenceThreshold = isMobile ? 1500 : 2000;
+            
             voiceTimeout = setTimeout(function() {
                 // Check if enough time has passed since last voice activity
                 const timeSinceLastActivity = Date.now() - lastVoiceActivity;
-                if (timeSinceLastActivity >= 2000) { // 2 seconds of silence
+                if (timeSinceLastActivity >= silenceThreshold) {
                     speech.recognition.stop();
                     speechText();
+                    // Store voice flag again before sending
+                    isVoiceConversation = true;
+                    sessionStorage.setItem('isVoiceConversation', 'true');
                     $('#sendBtn').click();
                 } else {
                     // Extend the wait if user was speaking recently
                     voiceTimeout = setTimeout(function() {
                         speech.recognition.stop();
                         speechText();
+                        // Store voice flag again before sending
+                        isVoiceConversation = true;
+                        sessionStorage.setItem('isVoiceConversation', 'true');
                         $('#sendBtn').click();
-                    }, 2500 - timeSinceLastActivity);
+                    }, Math.max(500, silenceThreshold - timeSinceLastActivity));
                 }
-            }, 2500); // Increased from 1500ms to 2500ms
+            }, initialDelay);
         }
         r++;
         setTimeout(function() {

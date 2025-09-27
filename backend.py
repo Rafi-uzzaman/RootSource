@@ -120,9 +120,9 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
         
         # Handle localhost/development cases only
         if client_ip in ["127.0.0.1", "localhost", "::1"]:
-            # Default to New York for local development only
-            return 40.7128, -74.0060, "New York, NY, USA (localhost)"
-        
+            # Default to Dhaka for local development only
+            return 40.7128, -74.0060, "Dhaka, Bangladesh (localhost)"
+
         # Try multiple geolocation services
         async with httpx.AsyncClient(timeout=10.0) as client:
             # Try ip-api.com first
@@ -163,7 +163,7 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
     
     # Final fallback: Use New York coordinates if all methods fail
     print("Location detection failed, using New York as fallback")
-    return 40.7128, -74.0060, "New York, NY, USA (fallback)"
+    return 40.7128, -74.0060, "Dhaka, Bangladesh (fallback)"
 
 # Comprehensive Agricultural Knowledge Base
 CROP_DATABASE = {
