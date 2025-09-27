@@ -117,9 +117,9 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
         # Get client IP
         client_ip = request.client.host
         
-        # Handle localhost/development cases
-        if client_ip in ["127.0.0.1", "localhost", "::1"]:
-            # Default to New York for development
+        # Handle localhost/development cases and Railway deployment
+        if client_ip in ["127.0.0.1", "localhost", "::1"] or os.getenv("RAILWAY_ENVIRONMENT"):
+            # Default to New York for development and Railway
             return 40.7128, -74.0060, "New York, NY, USA"
         
         # Use a free IP geolocation service
@@ -138,7 +138,9 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
     except Exception as e:
         print(f"Location detection error: {e}")
     
-    return None, None, None
+    # Final fallback: Use New York coordinates if all methods fail
+    print("Location detection failed, using New York as fallback")
+    return 40.7128, -74.0060, "New York, NY, USA (fallback)"
 
 async def get_nasa_power_data(lat: float, lon: float, days_back: int = 30) -> Dict:
     """
