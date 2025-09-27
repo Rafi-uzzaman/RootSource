@@ -61,6 +61,7 @@ app.add_middleware(
 # Pydantic model for frontend requests
 class ChatRequest(BaseModel):
     message: str
+    location: Optional[str] = None  # Optional location override (e.g., "Gazipur, Bangladesh")
 
 # --- Initialize AI Tools ---
 wiki = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=200))
@@ -114,40 +115,146 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
     Returns (latitude, longitude, location_name) or (None, None, None) if detection fails.
     """
     try:
-        # Get client IP, checking for proxy headers first
-        client_ip = (
-            request.headers.get("x-forwarded-for", "").split(",")[0].strip() or
-            request.headers.get("x-real-ip", "").strip() or
-            request.headers.get("cf-connecting-ip", "").strip() or
-            request.client.host
-        )
-        
-        print(f"Detecting location for IP: {client_ip}")
+        # Get client IP
+        client_ip = request.client.host
         
         # Handle localhost/development cases only
         if client_ip in ["127.0.0.1", "localhost", "::1"]:
-            # Default to New York for development
-            return 40.7128, -74.0060, "New York, NY, USA (dev mode)"
+            # Default to New York for local development only
+            return 40.7128, -74.0060, "New York, NY, USA (localhost)"
         
-        # Use a free IP geolocation service
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"http://ip-api.com/json/{client_ip}")
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("status") == "success":
-                    lat = data.get("lat")
-                    lon = data.get("lon")
-                    city = data.get("city", "")
-                    region = data.get("regionName", "")
-                    country = data.get("country", "")
-                    location_name = f"{city}, {region}, {country}" if city else f"{region}, {country}"
-                    return lat, lon, location_name
+        # Try multiple geolocation services
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Try ip-api.com first
+            try:
+                response = await client.get(f"http://ip-api.com/json/{client_ip}")
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "success":
+                        lat = data.get("lat")
+                        lon = data.get("lon")
+                        city = data.get("city", "")
+                        region = data.get("regionName", "")
+                        country = data.get("country", "")
+                        location_name = f"{city}, {region}, {country}" if city else f"{region}, {country}"
+                        print(f"Location detected: {location_name} ({lat}, {lon}) from IP: {client_ip}")
+                        return lat, lon, location_name
+            except Exception as e:
+                print(f"ip-api.com failed: {e}")
+            
+            # Try ipapi.co as backup
+            try:
+                response = await client.get(f"https://ipapi.co/{client_ip}/json/")
+                if response.status_code == 200:
+                    data = response.json()
+                    if not data.get("error"):
+                        lat = data.get("latitude")
+                        lon = data.get("longitude")
+                        city = data.get("city", "")
+                        region = data.get("region", "")
+                        country = data.get("country_name", "")
+                        location_name = f"{city}, {region}, {country}" if city else f"{region}, {country}"
+                        print(f"Location detected via backup: {location_name} ({lat}, {lon}) from IP: {client_ip}")
+                        return lat, lon, location_name
+            except Exception as e:
+                print(f"ipapi.co backup failed: {e}")
     except Exception as e:
         print(f"Location detection error: {e}")
     
-    # Final fallback: Use Dhaka, Bangladesh coordinates if all methods fail
-    print("Location detection failed, using Dhaka, Bangladesh as fallback")
-    return 23.8103, 90.4125, "Dhaka, Bangladesh (fallback)"
+    # Final fallback: Use New York coordinates if all methods fail
+    print("Location detection failed, using New York as fallback")
+    return 40.7128, -74.0060, "New York, NY, USA (fallback)"
+
+def get_country_agricultural_context(location_name: str) -> str:
+    """
+    Add country-specific agricultural context to improve responses
+    """
+    if not location_name:
+        return ""
+    
+    location_lower = location_name.lower()
+    
+    if "bangladesh" in location_lower:
+        return """
+**Bangladesh Agricultural Context:**
+- Main crops: Rice (Aman, Aus, Boro), Jute, Tea, Sugarcane, Wheat, Maize, Vegetables
+- Growing seasons: Kharif (April-September), Rabi (October-March)
+- Major government programs: Agriculture Incentive Program, Fertilizer Subsidy Program, Agricultural Credit Program
+- Key institutions: Ministry of Agriculture, Bangladesh Agricultural Development Corporation (BADC)
+- Climate: Tropical monsoon climate with distinct wet and dry seasons
+- Soil types: Alluvial, clayey, sandy loam predominant in Gazipur area
+"""
+    elif "india" in location_lower:
+        return """
+**India Agricultural Context:**  
+- Main crops: Rice, Wheat, Sugarcane, Cotton, Pulses, Oilseeds
+- Growing seasons: Kharif (June-October), Rabi (November-April), Zaid (April-June)
+- Government schemes: PM-KISAN, Soil Health Card, Pradhan Mantri Fasal Bima Yojana
+"""
+    elif "usa" in location_lower or "america" in location_lower:
+        return """
+**USA Agricultural Context:**
+- Main crops: Corn, Soybeans, Wheat, Cotton, Rice
+- Growing season: Generally April-October depending on region
+- Government programs: USDA Farm Service Agency, Crop Insurance, Conservation Programs
+"""
+    
+    return ""
+
+async def parse_manual_location(location_str: str) -> Tuple[Optional[float], Optional[float], str]:
+    """
+    Parse a manual location string and return coordinates.
+    Examples: "Gazipur, Bangladesh", "London, UK", "40.7128,-74.0060"
+    """
+    try:
+        location_str = location_str.strip()
+        
+        # Check if it's coordinates (lat,lon format)
+        if ',' in location_str and location_str.replace(',', '').replace('.', '').replace('-', '').replace(' ', '').isdigit():
+            parts = location_str.split(',')
+            if len(parts) == 2:
+                lat = float(parts[0].strip())
+                lon = float(parts[1].strip())
+                return lat, lon, f"Manual coordinates: {lat:.4f}, {lon:.4f}"
+        
+        # Known locations database for common areas
+        known_locations = {
+            "gazipur bangladesh": (23.9999, 90.4203, "Gazipur, Bangladesh"),
+            "gazipur": (23.9999, 90.4203, "Gazipur, Bangladesh"),
+            "dhaka bangladesh": (23.8103, 90.4125, "Dhaka, Bangladesh"),
+            "dhaka": (23.8103, 90.4125, "Dhaka, Bangladesh"),
+            "bangladesh": (23.6850, 90.3563, "Bangladesh"),
+            "chittagong bangladesh": (22.3569, 91.7832, "Chittagong, Bangladesh"),
+            "sylhet bangladesh": (24.8949, 91.8687, "Sylhet, Bangladesh"),
+            "london uk": (51.5074, -0.1278, "London, UK"),
+            "new york usa": (40.7128, -74.0060, "New York, USA"),
+        }
+        
+        location_key = location_str.lower()
+        if location_key in known_locations:
+            lat, lon, name = known_locations[location_key]
+            print(f"Manual location matched: {name} ({lat}, {lon})")
+            return lat, lon, name
+        
+        # Try geocoding service for unknown locations
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Use a geocoding service
+            encoded_location = location_str.replace(' ', '%20')
+            response = await client.get(f"https://geocode.maps.co/search?q={encoded_location}")
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    result = data[0]
+                    lat = float(result.get("lat", 0))
+                    lon = float(result.get("lon", 0))
+                    display_name = result.get("display_name", location_str)
+                    print(f"Geocoded location: {display_name} ({lat}, {lon})")
+                    return lat, lon, display_name
+                    
+    except Exception as e:
+        print(f"Manual location parsing error: {e}")
+    
+    return None, None, location_str
 
 async def get_nasa_power_data(lat: float, lon: float, days_back: int = 30) -> Dict:
     """
@@ -583,7 +690,8 @@ def determine_relevant_nasa_datasets(query: str) -> List[str]:
         # Check if it's agriculture-related at all
         agriculture_keywords = [
             "farm", "crop", "plant", "grow", "harvest", "agriculture", "farming",
-            "field", "soil", "seed", "fertilizer", "pest", "yield", "livestock"
+            "field", "soil", "seed", "fertilizer", "pest", "yield", "livestock",
+            "subsid", "government", "support", "program", "scheme", "grant", "loan"
         ]
         
         if any(keyword in query_lower for keyword in agriculture_keywords):
@@ -760,7 +868,15 @@ def trim_chat_memory(max_length=5):
 async def chat(req: ChatRequest, request: Request):
     user_message = req.message
     translated_query, original_lang = translate_to_english(user_message)
-    lat, lon, location_name = await detect_user_location(request)
+    
+    # Check if manual location is provided
+    if req.location:
+        lat, lon, location_name = await parse_manual_location(req.location)
+        if lat is None or lon is None:
+            # Fall back to IP detection if manual parsing fails
+            lat, lon, location_name = await detect_user_location(request)
+    else:
+        lat, lon, location_name = await detect_user_location(request)
 
     # Helper: detect meta question about NASA datasets/capabilities
     def is_nasa_capability_question(q: str) -> bool:
@@ -847,8 +963,10 @@ async def chat(req: ChatRequest, request: Request):
             "nasaDataUsed": used_datasets
         }
 
-    # Quick response for greetings
-    if any(greeting in translated_query.lower() for greeting in ['hi', 'hello', 'hey', 'greetings']):
+    # Quick response for greetings (use word boundaries to avoid false matches)
+    import re
+    greeting_pattern = r'\b(hi|hello|hey|greetings)\b'
+    if re.search(greeting_pattern, translated_query.lower()):
         response_text = """**RootSource AI** - Your Expert Agriculture Assistant
 
 Hello! I'm RootSource AI, your expert AI assistant for all things farming and agriculture.
@@ -1021,6 +1139,8 @@ Your mission is to provide the most accurate, concise, and actionable answers to
 
 **User Location:** {location_name if location_name else "Location not detected"}
 
+{get_country_agricultural_context(location_name)}
+
 Question: {translated_query}
 
 Your goal: Be the world's most intelligent and powerful AI application for agriculture, delivering maximum accuracy, reliability, and value to every user.
@@ -1121,15 +1241,11 @@ async def health():
     return {"status": "ok", "app": "RootSource AI"}
 
 @app.get("/debug")
-async def debug(request: Request):
-    """Debug endpoint to check environment variables and IP detection"""
+async def debug():
+    """Debug endpoint to check environment variables"""
     groq_key = os.getenv("GROQ_API_KEY")
     # Get all environment variables that might be relevant
     env_vars = {k: v for k, v in os.environ.items() if any(x in k.upper() for x in ['GROQ', 'API', 'KEY', 'PORT', 'HOST', 'RAILWAY'])}
-    
-    # Test location detection
-    lat, lon, location_name = await detect_user_location(request)
-    
     return {
         "groq_key_present": bool(groq_key),
         "groq_key_length": len(groq_key) if groq_key else 0,
@@ -1137,18 +1253,22 @@ async def debug(request: Request):
         "host": os.getenv("HOST", "not_set"),
         "port": os.getenv("PORT", "not_set"),
         "env_vars_found": list(env_vars.keys()),
-        "total_env_vars": len(os.environ),
-        "client_ip": request.client.host,
-        "headers": {
-            "x-forwarded-for": request.headers.get("x-forwarded-for"),
-            "x-real-ip": request.headers.get("x-real-ip"),
-            "cf-connecting-ip": request.headers.get("cf-connecting-ip"),
-        },
-        "detected_location": {
-            "latitude": lat,
-            "longitude": lon,
-            "name": location_name
-        },
+        "total_env_vars": len(os.environ)
+    }
+
+@app.get("/location-test")
+async def location_test(request: Request):
+    """
+    Test location detection to help debug geolocation issues
+    """
+    lat, lon, location_name = await detect_user_location(request)
+    client_ip = request.client.host
+    
+    return {
+        "client_ip": client_ip,
+        "detected_location": location_name,
+        "coordinates": {"lat": lat, "lon": lon},
+        "is_localhost": client_ip in ["127.0.0.1", "localhost", "::1"],
         "railway_env": bool(os.getenv("RAILWAY_ENVIRONMENT"))
     }
 
