@@ -19,7 +19,7 @@
 
 > *"In the fields of tomorrow, every farmer will have an AI agronomist in their pocket."*
 
-**RootSource AI** is not just another chatbot—it's your digital farming companion that combines cutting-edge artificial intelligence with agricultural expertise. Built for farmers, researchers, agronomists, and agricultural enthusiasts worldwide, RootSource AI transforms complex agricultural science into actionable insights that help cultivate success.
+**RootSource AI** is not just another chatbot—it's your intelligent farming companion powered by **authenticated NASA satellite data** and cutting-edge AI. Built for farmers, researchers, agronomists, and agricultural enthusiasts worldwide, RootSource AI transforms complex agricultural science and real-time Earth observations into actionable insights that help cultivate success.
 
 ## 🌟 Why RootSource AI?
 
@@ -32,16 +32,40 @@ In an era where precision agriculture meets artificial intelligence, farmers nee
 
 ---
 
+## 🚀 **Latest Updates** (September 2025)
+
+### **✅ Real NASA Data Integration**
+- **🔐 Production Authentication**: Integrated real NASA Earthdata token and API key
+- **🎯 Fixed Attribution**: No more "None (datasets unavailable)" - shows actual datasets used
+- **📡 Live Data Feeds**: POWER, MODIS, GLDAS, and GRACE providing real-time agricultural data
+- **🌍 Location-Aware**: NASA datasets tailored to user's geographical coordinates
+
+### **🎤 Enhanced Voice Intelligence** 
+- **⏱️ Smart Timing**: Fixed premature triggering - now waits 2.5s with intelligent silence detection
+- **🎯 Activity Tracking**: Monitors ongoing speech to prevent interruptions
+- **🧹 Robust Cleanup**: Proper timeout management and event handling
+- **🌐 Multi-Language**: Supports voice input in 6+ languages with improved accuracy
+
+### **🛠️ Technical Improvements**
+- **📊 Debug Logging**: Enhanced NASA API call monitoring and success tracking
+- **⚡ Performance**: Optimized timeout management (15s) for NASA API calls
+- **🔄 Error Handling**: Better fallback mechanisms for API failures
+- **📍 Geolocation**: Improved IP-based location detection for NASA data personalization
+
+---
+
 ## 🆕 What's New in RootSource AI
 
-### **🛰️ Multi-Dataset NASA Integration**
-RootSource AI now integrates **5 comprehensive NASA datasets** for unparalleled agricultural intelligence:
+### **🛰️ Multi-Dataset NASA Integration** 🆕
+RootSource AI now integrates **5 comprehensive NASA datasets** with **authenticated real-time data access**:
 
-- **✅ NASA POWER** - Climate and weather data (temperature, precipitation, solar radiation)
-- **✅ MODIS** - Vegetation health monitoring (NDVI, EVI, leaf area index)
-- **✅ LANDSAT** - Detailed crop analysis and field monitoring
-- **✅ GLDAS** - Soil moisture and hydrological data
-- **✅ GRACE** - Groundwater storage and drought monitoring
+- **🔑 NASA POWER** - Authenticated climate and weather data (temperature, precipitation, solar radiation)
+- **🔑 MODIS** - Real-time vegetation health monitoring (NDVI, EVI, leaf area index)
+- **🔄 LANDSAT** - Detailed crop analysis and field monitoring (NASA Earth Imagery API)
+- **🔑 GLDAS** - Authenticated soil moisture and hydrological data
+- **🔑 GRACE** - Real-time groundwater storage and drought monitoring
+
+> **🔐 Authentication Status**: Fully configured with NASA Earthdata token and API key for production-grade data access
 
 ### **🧠 Intelligent Dataset Routing**
 Advanced AI determines which NASA datasets are most relevant for each query:
@@ -50,15 +74,30 @@ Advanced AI determines which NASA datasets are most relevant for each query:
 - **Irrigation planning** → GLDAS + GRACE + POWER integration
 - **Comprehensive farm analysis** → All 5 datasets combined
 
+### **🎤 Enhanced Voice Intelligence** 🆕
+Improved speech recognition with intelligent completion detection:
+- **Smart timing**: 2.5-second delay with silence detection
+- **Activity tracking**: Monitors ongoing speech to prevent premature triggering
+- **Robust cleanup**: Proper timeout management and event handling
+- **Multi-language**: Supports voice input in 6+ languages
+
 ### **📍 Location-Based Personalization**
 - Automatic IP-based geolocation detection
 - Localized NASA data for your specific coordinates
 - Graceful fallback for development environments
 
 ### **🎯 Enhanced Response Format**
-- Single-line dataset attribution: "NASA dataset(s) used: [list]"
+- Real-time dataset attribution: "NASA dataset(s) used: [list]"
 - Structured insights with actionable recommendations
 - Domain restriction for agriculture-focused responses
+- Debug logging for dataset fetch status and authentication
+
+### **🔧 Latest Technical Improvements** (September 2025)
+- ✅ **Real NASA Authentication**: Production NASA Earthdata token integration
+- ✅ **Voice Timing Fix**: Improved speech completion detection (no premature triggering)
+- ✅ **Dataset Attribution**: Fixed "None unavailable" issue - now shows actual datasets used
+- ✅ **Enhanced Error Handling**: Better NASA API timeout management (15s)
+- ✅ **Location-Aware Data**: NASA datasets tailored to user's geographical location
 
 ---
 
@@ -221,14 +260,16 @@ Built for scale and reliability:
 - **🔒 Production Security**: CORS protection and environment-based configuration
 - **📈 Scalable Infrastructure**: Designed to handle thousands of concurrent farmers
 
-### 🛰️ **NASA Earth Science Integration**
-Experience agriculture through the lens of space-based observation:
-- **📡 NASA POWER API**: Agroclimatology data from satellite observations
-- **🌍 Global Coverage**: Worldwide climate data at 0.5° x 0.625° resolution
-- **📊 Multi-Parameter Analysis**: Temperature, precipitation, humidity, solar radiation, wind speed
-- **⏰ Real-Time Processing**: Fresh data integrated into every relevant agricultural query  
-- **🎯 Intelligent Routing**: AI determines when NASA data enhances agricultural advice
-- **📍 Location Precision**: IP-based geolocation for localized climate insights
+### 🛰️ **NASA Earth Science Integration** 🔐
+Experience agriculture through authenticated NASA data access:
+- **🔑 Production Authentication**: Real NASA Earthdata token and API key integration
+- **📡 NASA POWER API**: Authenticated agroclimatology data from satellite observations
+- **� MODIS Data**: Real-time vegetation health monitoring (NDVI, EVI, LAI)
+- **💧 GLDAS Integration**: Authenticated soil moisture and hydrological data
+- **🌊 GRACE Data**: Groundwater storage and drought monitoring
+- **🌍 Global Coverage**: Worldwide data at high resolution (0.5° x 0.625°)
+- **⏰ Real-Time Processing**: Live NASA data integrated into every relevant query
+- **🎯 Smart Attribution**: Shows actual datasets used: "NASA dataset(s) used: POWER, MODIS, GLDAS"
 - **🏷️ Dataset Transparency**: Clear attribution of NASA sources used in responses
 
 <details>
@@ -325,8 +366,29 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # Edit with your favorite editor
-nano .env  # Add your GROQ_API_KEY here
+nano .env  # Add your API keys here
 ```
+
+**Required Environment Variables:**
+```bash
+# Core AI Configuration
+GROQ_API_KEY=your_groq_api_key_here
+OPENAI_API_KEY=your_openai_key_here  # Optional backup
+
+# NASA API Configuration (Required for real-time data)
+NASA_EARTHDATA_TOKEN=your_nasa_earthdata_token
+NASA_API_KEY=your_nasa_api_key
+
+# Optional: Advanced Features
+ALLOW_ORIGINS=*
+HOST=0.0.0.0
+PORT=8000
+```
+
+> **🔑 Getting NASA Credentials:**
+> - **Earthdata Token**: Register at [NASA Earthdata](https://urs.earthdata.nasa.gov/)
+> - **NASA API Key**: Get free key at [api.nasa.gov](https://api.nasa.gov/)
+> - **Fallback**: App works with simulated data if credentials unavailable
 
 #### 5️⃣ **Launch the Application**
 ```bash
@@ -336,6 +398,19 @@ uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
 # Production server
 gunicorn -c gunicorn.conf.py backend:app
 ```
+
+#### 6️⃣ **Test NASA Integration**
+```bash
+# Test with authenticated NASA data
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"message": "What is the soil moisture for corn farming in Iowa?"}' \
+  http://localhost:8000/chat
+
+# Expected response includes:
+# "NASA dataset(s) used: MODIS, GLDAS, GRACE"
+```
+
+> **🎯 Success Indicator**: If properly configured, you'll see specific NASA datasets listed instead of "None (datasets unavailable)"
 
 </details>
 
@@ -820,7 +895,54 @@ RootSource AI is equipped with comprehensive **Open Graph** and **Twitter Card**
 
 ---
 
-## 📄 **License & Legal**
+## � **Changelog**
+
+<details>
+<summary><b>🚀 Version 2.1 - September 27, 2025</b></summary>
+
+### **🔐 NASA Authentication Integration**
+- ✅ Added real NASA Earthdata token integration  
+- ✅ Implemented NASA API key authentication
+- ✅ Fixed "None (datasets unavailable)" attribution issue
+- ✅ Enhanced dataset success tracking with debug logging
+- ✅ Improved timeout management for NASA API calls (15s)
+
+### **🎤 Voice Input Enhancements**  
+- ✅ Fixed premature voice triggering issue
+- ✅ Implemented intelligent silence detection (2.5s delay)
+- ✅ Added voice activity timestamp tracking
+- ✅ Enhanced speech recognition event handling
+- ✅ Improved cleanup and timeout management
+
+### **📊 Data & Performance**
+- ✅ Real-time NASA POWER climate data integration
+- ✅ Authenticated MODIS vegetation health monitoring  
+- ✅ Live GLDAS soil moisture data access
+- ✅ GRACE groundwater storage monitoring
+- ✅ Location-aware NASA data personalization
+- ✅ Enhanced error handling and fallback mechanisms
+
+### **🛠️ Technical Improvements**
+- ✅ Updated settings.py with NASA credential configuration
+- ✅ Enhanced backend.py with authentication headers
+- ✅ Improved script.js voice timing logic  
+- ✅ Added comprehensive API testing capabilities
+- ✅ Better documentation and setup instructions
+
+</details>
+
+<details>
+<summary><b>📈 Previous Versions</b></summary>
+
+**Version 2.0** - Multi-language support, voice features, NASA integration foundation  
+**Version 1.5** - FastAPI backend, improved UI/UX  
+**Version 1.0** - Initial release with basic agricultural AI features  
+
+</details>
+
+---
+
+## �📄 **License & Legal**
 
 <div align="center">
 

@@ -244,24 +244,46 @@ $(document).ready(function() {
         }
     });
 
+    let voiceTimeout = null;
+    let lastVoiceActivity = Date.now();
+    
     function checkhSpeach() {
         $('#speakBtn').removeClass('active');
         
         // Mark this as a voice-initiated conversation
         isVoiceConversation = true;
         
+        // Update last voice activity timestamp
+        lastVoiceActivity = Date.now();
+        
+        // Clear any existing timeout
+        if (voiceTimeout) {
+            clearTimeout(voiceTimeout);
+        }
+        
         if (r == 0) {
-            // new Audio('assets/audio/end.mp3').play();
-            setTimeout(function() {
-                speech.recognition.stop();
-                speechText();
-                $('#sendBtn').click();
-            }, 1500);
+            // Wait longer to ensure user has finished speaking
+            voiceTimeout = setTimeout(function() {
+                // Check if enough time has passed since last voice activity
+                const timeSinceLastActivity = Date.now() - lastVoiceActivity;
+                if (timeSinceLastActivity >= 2000) { // 2 seconds of silence
+                    speech.recognition.stop();
+                    speechText();
+                    $('#sendBtn').click();
+                } else {
+                    // Extend the wait if user was speaking recently
+                    voiceTimeout = setTimeout(function() {
+                        speech.recognition.stop();
+                        speechText();
+                        $('#sendBtn').click();
+                    }, 2500 - timeSinceLastActivity);
+                }
+            }, 2500); // Increased from 1500ms to 2500ms
         }
         r++;
         setTimeout(function() {
             r = 0;
-        }, 3000);
+        }, 4000); // Increased from 3000ms to 4000ms
 
         let text = $('#recoredText').text().trim();
         if (text.length > 1) {
@@ -318,6 +340,10 @@ $(document).ready(function() {
         speech.recognition.addEventListener("result", (event) => {
             const audio = event.results[event.results.length - 1];
             speech.text = audio[0].transcript;
+            
+            // Update last voice activity on any speech detection (interim or final)
+            lastVoiceActivity = Date.now();
+            
             const tag = document.activeElement.nodeName;
             if (tag === "INPUT" || tag === "TEXTAREA") {
                 if (audio.isFinal) {
@@ -326,9 +352,20 @@ $(document).ready(function() {
             }
             $('#recoredText').text(speech.text);
 
-            if (audio.isFinal) {
+            // Only process when speech is final AND we have substantial text
+            if (audio.isFinal && speech.text.trim().length > 2) {
                 checkhSpeach();
             }
+        });
+
+        // Handle recognition end event
+        speech.recognition.addEventListener("end", (event) => {
+            // Clear any pending timeouts when recognition ends
+            if (voiceTimeout) {
+                clearTimeout(voiceTimeout);
+                voiceTimeout = null;
+            }
+            $('#speakBtn').removeClass('active');
         });
     }
 
@@ -374,9 +411,16 @@ $(document).ready(function() {
     }
 
     $('#stopVoiceBtn').click(function() {
+        // Clear any pending voice processing timeouts
+        if (voiceTimeout) {
+            clearTimeout(voiceTimeout);
+            voiceTimeout = null;
+        }
+        
         speech.recognition.stop();
         stopSpeech();
         isVoiceConversation = false; // Reset voice conversation flag
+        $('#speakBtn').removeClass('active');
     });
 
 });

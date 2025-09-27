@@ -1,0 +1,55 @@
+nohup: ignoring input
+INFO:     Started server process [52643]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+POWER dataset successfully fetched
+GLDAS dataset successfully fetched
+NASA datasets attempted: ['POWER', 'GLDAS']
+NASA datasets successfully used: ['POWER', 'GLDAS']
+INFO:     127.0.0.1:34788 - "POST /chat HTTP/1.1" 200 OK
+POWER dataset successfully fetched
+MODIS dataset successfully fetched
+NASA Landsat API error: 
+LANDSAT dataset failed: Unable to fetch imagery data
+GLDAS dataset successfully fetched
+GRACE dataset successfully fetched
+NASA datasets attempted: ['LANDSAT', 'GRACE', 'MODIS', 'POWER', 'GLDAS']
+NASA datasets successfully used: ['POWER', 'MODIS', 'GLDAS', 'GRACE']
+Direct LLM error (falling back to demo response): Error code: 400 - {'error': {'message': 'Tool choice is none, but model called a tool', 'type': 'invalid_request_error', 'code': 'tool_use_failed', 'failed_generation': '{"name": "web.run", "arguments": {\n  "id": "1",\n  "source": "bing",\n  "query": "Iowa corn MODIS NDVI 2024 season",\n  "top_n": 5,\n  "recency_days": -1,\n  "response_length": 5\n}}'}}
+INFO:     127.0.0.1:52906 - "POST /chat HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET / HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/js/config.js HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message%20send.mp3 HTTP/1.1" 200 OK
+POWER dataset successfully fetched
+MODIS dataset successfully fetched
+GLDAS dataset successfully fetched
+GRACE dataset successfully fetched
+NASA datasets attempted: ['GRACE', 'MODIS', 'POWER', 'GLDAS']
+NASA datasets successfully used: ['POWER', 'MODIS', 'GLDAS', 'GRACE']
+INFO:     103.133.32.23:0 - "POST /chat HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message-notification.mp3 HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message%20send.mp3 HTTP/1.1" 200 OK
+POWER dataset successfully fetched
+GLDAS dataset successfully fetched
+GRACE dataset successfully fetched
+NASA datasets attempted: ['GRACE', 'POWER', 'GLDAS']
+NASA datasets successfully used: ['POWER', 'GLDAS', 'GRACE']
+INFO:     103.133.32.23:0 - "POST /chat HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message-notification.mp3 HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/start.mp3 HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message%20send.mp3 HTTP/1.1" 200 OK
+POWER dataset successfully fetched
+MODIS dataset successfully fetched
+NASA Landsat API error: 
+LANDSAT dataset failed: Unable to fetch imagery data
+GLDAS dataset successfully fetched
+GRACE dataset successfully fetched
+NASA datasets attempted: ['LANDSAT', 'GRACE', 'MODIS', 'POWER', 'GLDAS']
+NASA datasets successfully used: ['POWER', 'MODIS', 'GLDAS', 'GRACE']
+INFO:     103.133.32.23:0 - "POST /chat HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message-notification.mp3 HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/start.mp3 HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message%20send.mp3 HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "POST /chat HTTP/1.1" 200 OK
+INFO:     103.133.32.23:0 - "GET /assets/audio/message-notification.mp3 HTTP/1.1" 200 OK
