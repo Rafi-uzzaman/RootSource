@@ -908,7 +908,7 @@ body {
     margin-bottom: 20px;
 }
 
-#aboutLink {
+#aboutLink, #voiceSettingsLink {
     color: var(--primary-color);
     text-decoration: none;
     font-weight: 600;
@@ -916,8 +916,14 @@ body {
     transition: border-color 0.3s;
 }
 
-#aboutLink:hover {
+#aboutLink:hover, #voiceSettingsLink:hover {
     border-color: var(--primary-color);
+}
+
+.separator {
+    color: var(--text-color);
+    margin: 0 10px;
+    opacity: 0.7;
 }
 
 /* About Modal */

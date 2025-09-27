@@ -19,13 +19,22 @@ function stopSpeech() {
 }
 
 // Function to speak AI response
-function speakAIResponse(text, detectedLang) {
-    if (!isVoiceConversation) return; // Only speak if conversation was initiated by voice
+function speakAIResponse(text, detectedLang, forceSpeak = false) {
+    console.log('speakAIResponse called:', { text: text?.length, detectedLang, isVoiceConversation, forceSpeak });
+    
+    // Check if we should speak: either voice conversation or user preference for always speaking
+    const shouldSpeak = isVoiceConversation || forceSpeak || localStorage.getItem('alwaysSpeak') === 'true';
+    
+    if (!shouldSpeak) {
+        console.log('Not a voice conversation and no force speak, skipping speech');
+        return;
+    }
 
     let synth = window.speechSynthesis;
     let voices = synth.getVoices();
     
     if (!voices.length) {
+        console.log('No voices available, waiting for voices to load');
         synth.onvoiceschanged = () => speakAIResponse(text, detectedLang);
         return;
     }
@@ -33,32 +42,48 @@ function speakAIResponse(text, detectedLang) {
     // Clean HTML tags from response for speech
     let cleanText = text.replace(/<[^>]*>/g, ' ')
                        .replace(/\s+/g, ' ')
+                       .replace(/&nbsp;/g, ' ')
+                       .replace(/&amp;/g, '&')
+                       .replace(/&lt;/g, '<')
+                       .replace(/&gt;/g, '>')
+                       .replace(/&quot;/g, '"')
                        .trim();
+
+    console.log('Clean text for speech:', cleanText.substring(0, 100) + '...');
 
     // Use detected language or fallback to stored preference
     const selectedOption = $('#lang option:selected');
     const preferredLang = detectedLang || selectedOption.data('lang') || 'en-US';
     const preferredVoiceName = selectedOption.data('voice') || localStorage.getItem(VOICE_STORAGE_KEY) || '';
 
+    console.log('Voice preferences:', { preferredLang, preferredVoiceName });
+
     // Find the best voice for the detected language with a robust fallback strategy
     let voiceToUse = voices.find(v => v.name === preferredVoiceName && (v.lang || '').startsWith(preferredLang.split('-')[0])) ||
         voices.find(v => (v.lang || '') === preferredLang) ||
         voices.find(v => (v.lang || '').startsWith(preferredLang.split('-')[0]));
 
-    // If no specific voice is found for the language, inform the user and exit gracefully.
-    if (!voiceToUse) {
-        const friendlyLangName = new Intl.DisplayNames(['en'], { type: 'language' }).of(preferredLang.split('-')[0]) || preferredLang;
-        const alertMessage = `Could not find a voice for <strong>${friendlyLangName}</strong> to read the response. You may need to install the text-to-speech voice pack for this language in your browser or operating system.`;
-        
-        showCustomAlert(alertMessage);
+    console.log('Selected voice:', voiceToUse?.name, voiceToUse?.lang);
 
-        console.warn(`No voice found for language: ${preferredLang}. Cannot speak response.`);
+    // If no specific voice is found for the language, use default English voice but still proceed
+    if (!voiceToUse) {
+        console.log('No specific voice found, trying fallback voices');
+        voiceToUse = voices.find(v => (v.lang || '').startsWith('en')) || voices[0];
         
-        // Clean up UI and flags as if speech ended
-        $('#voiceIndicator').removeClass('active');
-        $('#voice_search').removeClass('voice-active');
-        isVoiceConversation = false;
-        return;
+        if (!voiceToUse) {
+            const friendlyLangName = new Intl.DisplayNames(['en'], { type: 'language' }).of(preferredLang.split('-')[0]) || preferredLang;
+            const alertMessage = `Could not find a voice for <strong>${friendlyLangName}</strong> to read the response. You may need to install the text-to-speech voice pack for this language in your browser or operating system.`;
+            
+            showCustomAlert(alertMessage);
+
+            console.warn(`No voice found for language: ${preferredLang}. Cannot speak response.`);
+            
+            // Clean up UI and flags as if speech ended
+            $('#voiceIndicator').removeClass('active');
+            $('#voice_search').removeClass('voice-active');
+            isVoiceConversation = false;
+            return;
+        }
     }
 
     // Create and configure speech utterance
@@ -98,6 +123,7 @@ function speakAIResponse(text, detectedLang) {
     };
 
     // Stop any current speech and speak the new response
+    console.log('Starting speech synthesis...');
     stopSpeech();
     synth.speak(utterance);
 }
@@ -124,6 +150,7 @@ $(document).ready(function() {
     $('#customAlertClose').click(hideCustomAlert);
     $('#aboutLink').click(showAboutModal);
     $('#aboutModalClose').click(hideAboutModal);
+    $('#voiceSettingsLink').click(toggleVoiceSettings);
 });
 
 // Populate voice/language selector with bn-BD priority and one voice per language
@@ -441,3 +468,29 @@ function showAboutModal() {
 function hideAboutModal() {
     $('#aboutModal').removeClass('visible');
 }
+
+function toggleVoiceSettings() {
+    const alwaysSpeak = localStorage.getItem('alwaysSpeak') === 'true';
+    const newSetting = !alwaysSpeak;
+    localStorage.setItem('alwaysSpeak', newSetting.toString());
+    updateVoiceSettingsUI();
+    
+    if (newSetting) {
+        showCustomAlert('Voice output enabled for all responses! AI will now read all responses aloud.');
+    } else {
+        showCustomAlert('Voice output disabled. AI will only speak when you use voice input.');
+    }
+}
+
+function updateVoiceSettingsUI() {
+    const alwaysSpeak = localStorage.getItem('alwaysSpeak') === 'true';
+    const icon = alwaysSpeak ? '🔊' : '🔇';
+    const title = alwaysSpeak ? 'Voice output enabled for all responses' : 'Voice output only for voice input';
+    $('#voiceSettingsIcon').text(icon);
+    $('#voiceSettingsLink').attr('title', title);
+}
+
+// Initialize voice settings UI on page load
+$(document).ready(function() {
+    updateVoiceSettingsUI();
+});
