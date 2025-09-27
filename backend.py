@@ -117,10 +117,10 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
         # Get client IP
         client_ip = request.client.host
         
-        # Handle localhost/development cases and Railway deployment
-        if client_ip in ["127.0.0.1", "localhost", "::1"] or os.getenv("RAILWAY_ENVIRONMENT"):
-            # Default to New York for development and Railway
-            return 40.7128, -74.0060, "New York, NY, USA"
+        # Handle localhost/development cases only
+        if client_ip in ["127.0.0.1", "localhost", "::1"]:
+            # Default to New York for development
+            return 40.7128, -74.0060, "New York, NY, USA (dev mode)"
         
         # Use a free IP geolocation service
         async with httpx.AsyncClient() as client:
@@ -138,9 +138,9 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
     except Exception as e:
         print(f"Location detection error: {e}")
     
-    # Final fallback: Use New York coordinates if all methods fail
-    print("Location detection failed, using New York as fallback")
-    return 40.7128, -74.0060, "New York, NY, USA (fallback)"
+    # Final fallback: Use Dhaka, Bangladesh coordinates if all methods fail
+    print("Location detection failed, using Dhaka, Bangladesh as fallback")
+    return 23.8103, 90.4125, "Dhaka, Bangladesh (fallback)"
 
 async def get_nasa_power_data(lat: float, lon: float, days_back: int = 30) -> Dict:
     """
@@ -1114,11 +1114,15 @@ async def health():
     return {"status": "ok", "app": "RootSource AI"}
 
 @app.get("/debug")
-async def debug():
-    """Debug endpoint to check environment variables"""
+async def debug(request: Request):
+    """Debug endpoint to check environment variables and IP detection"""
     groq_key = os.getenv("GROQ_API_KEY")
     # Get all environment variables that might be relevant
     env_vars = {k: v for k, v in os.environ.items() if any(x in k.upper() for x in ['GROQ', 'API', 'KEY', 'PORT', 'HOST', 'RAILWAY'])}
+    
+    # Test location detection
+    lat, lon, location_name = await detect_user_location(request)
+    
     return {
         "groq_key_present": bool(groq_key),
         "groq_key_length": len(groq_key) if groq_key else 0,
@@ -1126,7 +1130,14 @@ async def debug():
         "host": os.getenv("HOST", "not_set"),
         "port": os.getenv("PORT", "not_set"),
         "env_vars_found": list(env_vars.keys()),
-        "total_env_vars": len(os.environ)
+        "total_env_vars": len(os.environ),
+        "client_ip": request.client.host,
+        "detected_location": {
+            "latitude": lat,
+            "longitude": lon,
+            "name": location_name
+        },
+        "railway_env": bool(os.getenv("RAILWAY_ENVIRONMENT"))
     }
 
 @app.get("/test-nasa-debug")
