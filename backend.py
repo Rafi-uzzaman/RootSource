@@ -1393,8 +1393,8 @@ def format_response(text):
     # Remove --- lines (horizontal rules) completely
     text = re.sub(r'^---.*$', '', text, flags=re.MULTILINE)
     
-    # Convert ### to h2
-    text = re.sub(r'^### (.+)$', r'<h2 style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</h2>', text, flags=re.MULTILINE)
+    # Convert ### to h5
+    text = re.sub(r'^### (.+)$', r'<h5 style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</h5>', text, flags=re.MULTILINE)
     
     # Convert **bold** to HTML
     text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</strong>', text)
