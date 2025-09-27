@@ -1413,13 +1413,7 @@ def format_response(text):
     text = re.sub(r'^(\d+)\. (.+)$', r'<div style="margin: 8px 0; padding-left: 20px; position: relative; line-height: 1.6;"><span style="position: absolute; left: 0; color: #2ecc71; font-weight: bold;">\1.</span>\2</div>', text, flags=re.MULTILINE)
     
     # Convert tables (basic support for | separated values)
-    text = re.sub(r'^\|(.+)\|$', r'<div style="border: 1px solid #ddd; padding: 8px; margin: 4px 0; background: #f9f9f9; border-radius: 3px;">\1</div>', text, flags=re.MULTILINE)
-    
-    # Convert links [text](url)
-    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" style="color: #2ecc71; text-decoration: none; border-bottom: 1px solid #2ecc71;" target="_blank">\1</a>', text)
-    
-    # Convert blockquotes >
-    text = re.sub(r'^> (.+)$', r'<blockquote style="border-left: 4px solid #2ecc71; margin: 8px 0; padding: 8px 16px; background: rgba(46, 204, 113, 0.05); font-style: italic;">\1</blockquote>', text, flags=re.MULTILINE)
+    text = re.sub(r'^\|(.+)\|$', r'<div style="border: 1px solid #ddd; padding: 8px; margin: 4px 0; border-radius: 3px;">\1</div>', text, flags=re.MULTILINE)
     
     # Convert line breaks
     text = text.replace('\n', '<br>')
