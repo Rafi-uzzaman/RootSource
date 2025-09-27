@@ -333,17 +333,13 @@ $(document).ready(function() {
     });
 
     let voiceTimeout = null;
-    let lastVoiceActivity = Date.now();
     
     function checkhSpeach() {
         $('#speakBtn').removeClass('active');
         
-        // Mark this as a voice-initiated conversation and store persistently
+        // Mark this as a voice-initiated conversation
         isVoiceConversation = true;
         sessionStorage.setItem('isVoiceConversation', 'true');
-        
-        // Update last voice activity timestamp
-        lastVoiceActivity = Date.now();
         
         // Clear any existing timeout
         if (voiceTimeout) {
@@ -351,38 +347,22 @@ $(document).ready(function() {
         }
         
         if (r == 0) {
-            // Mobile-friendly approach: shorter initial delay but more reliable
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const initialDelay = isMobile ? 1500 : 2500;
-            const silenceThreshold = isMobile ? 1500 : 2000;
-            
+            // Simple timeout approach - wait for silence then auto-send
             voiceTimeout = setTimeout(function() {
-                // Check if enough time has passed since last voice activity
-                const timeSinceLastActivity = Date.now() - lastVoiceActivity;
-                if (timeSinceLastActivity >= silenceThreshold) {
-                    speech.recognition.stop();
-                    speechText();
-                    // Store voice flag again before sending
-                    isVoiceConversation = true;
-                    sessionStorage.setItem('isVoiceConversation', 'true');
+                speech.recognition.stop();
+                speechText();
+                
+                // Auto-send after processing speech
+                setTimeout(function() {
                     $('#sendBtn').click();
-                } else {
-                    // Extend the wait if user was speaking recently
-                    voiceTimeout = setTimeout(function() {
-                        speech.recognition.stop();
-                        speechText();
-                        // Store voice flag again before sending
-                        isVoiceConversation = true;
-                        sessionStorage.setItem('isVoiceConversation', 'true');
-                        $('#sendBtn').click();
-                    }, Math.max(500, silenceThreshold - timeSinceLastActivity));
-                }
-            }, initialDelay);
+                }, 500);
+                
+            }, 1500); // Fixed 1.5 second delay for all devices
         }
         r++;
         setTimeout(function() {
             r = 0;
-        }, 4000); // Increased from 3000ms to 4000ms
+        }, 3000);
 
         let text = $('#recoredText').text().trim();
         if (text.length > 1) {
@@ -440,9 +420,6 @@ $(document).ready(function() {
             const audio = event.results[event.results.length - 1];
             speech.text = audio[0].transcript;
             
-            // Update last voice activity on any speech detection (interim or final)
-            lastVoiceActivity = Date.now();
-            
             const tag = document.activeElement.nodeName;
             if (tag === "INPUT" || tag === "TEXTAREA") {
                 if (audio.isFinal) {
@@ -451,20 +428,16 @@ $(document).ready(function() {
             }
             $('#recoredText').text(speech.text);
 
-            // Only process when speech is final AND we have substantial text
-            if (audio.isFinal && speech.text.trim().length > 2) {
+            // Process when speech is final and has content
+            if (audio.isFinal && speech.text.trim().length > 1) {
                 checkhSpeach();
             }
         });
 
         // Handle recognition end event
         speech.recognition.addEventListener("end", (event) => {
-            // Clear any pending timeouts when recognition ends
-            if (voiceTimeout) {
-                clearTimeout(voiceTimeout);
-                voiceTimeout = null;
-            }
             $('#speakBtn').removeClass('active');
+            console.log('Speech recognition ended');
         });
     }
 

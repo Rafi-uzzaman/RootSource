@@ -387,11 +387,62 @@ $(document).ready(function () {
                 }
             }
             
+            // Detect input language and add response language request
+            let messageToSend = promptText;
+            const languagePatterns = {
+                'bn': /[\u0980-\u09FF]/, // Bengali
+                'hi': /[\u0900-\u097F]/, // Hindi (Devanagari)
+                'ur': /[\u0600-\u06FF]/, // Urdu (Arabic script)
+                'ar': /[\u0600-\u06FF]/, // Arabic
+                'es': /[ñáéíóúü¿¡]/i,   // Spanish indicators
+                'fr': /[àâäçéèêëïîôùûüÿ]/i, // French indicators
+                'pt': /[ãáàâçéêíóôõú]/i, // Portuguese indicators
+                'it': /[àèéìíîòóùú]/i,   // Italian indicators
+                'de': /[äöüß]/i,         // German indicators
+                'ru': /[\u0400-\u04FF]/, // Russian (Cyrillic)
+                'zh': /[\u4e00-\u9fff]/, // Chinese
+                'ja': /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff]/, // Japanese
+                'ko': /[\uac00-\ud7af]/, // Korean
+                'th': /[\u0e00-\u0e7f]/  // Thai
+            };
+            
+            let detectedLang = null;
+            for (const [lang, pattern] of Object.entries(languagePatterns)) {
+                if (pattern.test(promptText)) {
+                    detectedLang = lang;
+                    break;
+                }
+            }
+            
+            // Add language-specific response request
+            if (detectedLang) {
+                const responseRequests = {
+                    'bn': ' দয়া করে বাংলায় উত্তর দিন।',
+                    'hi': ' कृपया हिंदी में उत्तर दें।',
+                    'ur': ' براہ کرم اردو میں جواب دیں۔',
+                    'ar': ' يرجى الإجابة بالعربية.',
+                    'es': ' Por favor responde en español.',
+                    'fr': ' Veuillez répondre en français.',
+                    'pt': ' Por favor responda em português.',
+                    'it': ' Per favore rispondi in italiano.',
+                    'de': ' Bitte antworten Sie auf Deutsch.',
+                    'ru': ' Пожалуйста, ответьте на русском языке.',
+                    'zh': ' 请用中文回答。',
+                    'ja': ' 日本語で答えてください。',
+                    'ko': ' 한국어로 답변해 주세요.',
+                    'th': ' กรุณาตอบเป็นภาษาไทย'
+                };
+                
+                if (responseRequests[detectedLang]) {
+                    messageToSend += responseRequests[detectedLang];
+                }
+            }
+            
             const response = await fetch(`${API_BASE}/chat`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({ 
-                    message: promptText,
+                    message: messageToSend,
                     location: userLocation
                 })
             });
