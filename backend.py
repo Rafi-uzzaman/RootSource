@@ -3,7 +3,6 @@ import re
 import time
 import json
 import httpx
-import uvicorn
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from fastapi import FastAPI, Request
@@ -942,4 +941,5 @@ async def debug():
     }
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host=HOST, port=PORT)
