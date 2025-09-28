@@ -18,90 +18,211 @@ function stopSpeech() {
     }
 }
 
-// Function to speak AI response
-function speakAIResponse(text, detectedLang) {
-    if (!isVoiceConversation) return; // Only speak if conversation was initiated by voice
+// Simple voice response function - reads response in original language
+function speakAIResponse(text, detectedLang, alwaysSpeak = false) {
+    console.log('🔊 speakAIResponse called');
 
-    let synth = window.speechSynthesis;
-    let voices = synth.getVoices();
-    
-    if (!voices.length) {
-        synth.onvoiceschanged = () => speakAIResponse(text, detectedLang);
+    // Check if speech synthesis is supported
+    if (!('speechSynthesis' in window)) {
+        console.error('❌ Speech synthesis not supported');
         return;
     }
 
-    // Clean HTML tags from response for speech
-    let cleanText = text.replace(/<[^>]*>/g, ' ')
-                       .replace(/\s+/g, ' ')
-                       .trim();
-
-    // Use detected language or fallback to stored preference
-    const selectedOption = $('#lang option:selected');
-    const preferredLang = detectedLang || selectedOption.data('lang') || 'en-US';
-    const preferredVoiceName = selectedOption.data('voice') || localStorage.getItem(VOICE_STORAGE_KEY) || '';
-
-    // Find the best voice for the detected language with a robust fallback strategy
-    let voiceToUse = voices.find(v => v.name === preferredVoiceName && (v.lang || '').startsWith(preferredLang.split('-')[0])) ||
-        voices.find(v => (v.lang || '') === preferredLang) ||
-        voices.find(v => (v.lang || '').startsWith(preferredLang.split('-')[0]));
-
-    // If no specific voice is found for the language, inform the user and exit gracefully.
-    if (!voiceToUse) {
-        const friendlyLangName = new Intl.DisplayNames(['en'], { type: 'language' }).of(preferredLang.split('-')[0]) || preferredLang;
-        const alertMessage = `Could not find a voice for <strong>${friendlyLangName}</strong> to read the response. You may need to install the text-to-speech voice pack for this language in your browser or operating system.`;
-        
-        showCustomAlert(alertMessage);
-
-        console.warn(`No voice found for language: ${preferredLang}. Cannot speak response.`);
-        
-        // Clean up UI and flags as if speech ended
-        $('#voiceIndicator').removeClass('active');
-        $('#voice_search').removeClass('voice-active');
-        isVoiceConversation = false;
+    // Only speak if voice conversation is active or always speak is enabled
+    const shouldSpeak = isVoiceConversation || alwaysSpeak || localStorage.getItem('alwaysSpeak') === 'true';
+    if (!shouldSpeak) {
+        console.log('🔇 Not speaking - conditions not met');
         return;
     }
 
-    // Create and configure speech utterance
-    let utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = preferredLang || 'en-US';
-    if (voiceToUse) utterance.voice = voiceToUse;
+    const synth = window.speechSynthesis;
+
+    // Clean text for speech
+    let cleanText = text
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!cleanText) {
+        console.warn('⚠️ No text to speak');
+        return;
+    }
+
+    // Stop any current speech
+    synth.cancel();
+
+    // Get voices and find appropriate one for detected language
+    const voices = synth.getVoices();
+    console.log('🎤 Available voices:', voices.length, 'Detected language:', detectedLang);
     
-    // Adjust speech rate and pitch for better experience
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    // Show voice indicator
-    $('#voiceIndicator').addClass('active');
-    $('#voice_search').addClass('voice-active');
-
-    // Add event listeners for better user experience
-    utterance.onstart = () => {
-        console.log('Started speaking AI response');
+    // Language mapping: convert short codes to full locale codes for speech synthesis
+    const languageMap = {
+        'bn': 'bn-BD',    // Bengali (Bangladesh)
+        'hi': 'hi-IN',    // Hindi (India) 
+        'mr': 'mr-IN',    // Marathi (India)
+        'ur': 'ur-PK',    // Urdu (Pakistan)
+        'ta': 'ta-IN',    // Tamil (India)
+        'te': 'te-IN',    // Telugu (India)
+        'gu': 'gu-IN',    // Gujarati (India)
+        'kn': 'kn-IN',    // Kannada (India)
+        'ml': 'ml-IN',    // Malayalam (India)
+        'pa': 'pa-IN',    // Punjabi (India)
+        'as': 'as-IN',    // Assamese (India)
+        'or': 'or-IN',    // Odia (India)
+        'en': 'en-US',    // English (US)
+        'ar': 'ar-SA',    // Arabic (Saudi Arabia)
+        'zh': 'zh-CN',    // Chinese (China)
+        'es': 'es-ES',    // Spanish (Spain)
+        'fr': 'fr-FR',    // French (France)
+        'de': 'de-DE',    // German (Germany)
+        'it': 'it-IT',    // Italian (Italy)
+        'pt': 'pt-PT',    // Portuguese (Portugal)
+        'ru': 'ru-RU',    // Russian (Russia)
+        'ja': 'ja-JP',    // Japanese (Japan)
+        'ko': 'ko-KR',    // Korean (Korea)
+        'th': 'th-TH',    // Thai (Thailand)
+        'vi': 'vi-VN',    // Vietnamese (Vietnam)
+        'id': 'id-ID',    // Indonesian (Indonesia)
+        'ms': 'ms-MY',    // Malay (Malaysia)
+        'tl': 'tl-PH',    // Filipino (Philippines)
+        'my': 'my-MM',    // Myanmar (Myanmar)
+        'km': 'km-KH',    // Khmer (Cambodia)
+        'lo': 'lo-LA',    // Lao (Laos)
+        'si': 'si-LK',    // Sinhala (Sri Lanka)
+        'ne': 'ne-NP'     // Nepali (Nepal)
     };
     
+    // PRIORITY: Use detected input language first, then fallback
+    const selectedOption = $('#lang option:selected');
+    let targetLang = detectedLang;
+    
+    // Convert short language code to full locale if needed
+    if (targetLang && languageMap[targetLang]) {
+        targetLang = languageMap[targetLang];
+        console.log('🔄 Mapped language:', detectedLang, '->', targetLang);
+    } else if (!targetLang) {
+        targetLang = selectedOption.data('lang') || 'en-US';
+    }
+    
+    console.log('🌍 Target language for speech:', targetLang);
+    
+    // Enhanced voice selection with better language matching
+    let voice = null;
+    let actualLang = targetLang;
+    
+    // Try exact language match first (e.g., 'bn-BD')
+    voice = voices.find(v => v.lang === targetLang);
+    if (voice) {
+        console.log('✅ Found exact language match:', voice.name, voice.lang);
+    } else {
+        // Try language family match (e.g., 'bn' from 'bn-BD')
+        const langCode = targetLang.split('-')[0];
+        voice = voices.find(v => v.lang.startsWith(langCode));
+        if (voice) {
+            console.log('✅ Found language family match:', voice.name, voice.lang);
+            actualLang = voice.lang;
+        } else {
+            // Fallback to English if target language not available
+            voice = voices.find(v => v.lang.startsWith('en'));
+            if (voice) {
+                console.log('⚠️ Language not found, using English fallback:', voice.name, voice.lang);
+                actualLang = voice.lang;
+            } else {
+                // Ultimate fallback - first available voice
+                voice = voices[0];
+                if (voice) {
+                    console.log('⚠️ Using first available voice:', voice.name, voice.lang);
+                    actualLang = voice.lang;
+                }
+            }
+        }
+    }
+
+    if (!voice) {
+        console.error('❌ No voice available for speech synthesis');
+        return;
+    }
+
+    // Create utterance with proper language settings
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = actualLang; // Use the actual voice language
+    utterance.voice = voice;
+    utterance.rate = 0.9;
+    utterance.volume = 1.0;
+    
+    console.log('🎙️ Speech setup:', {
+        text: cleanText.substring(0, 50) + '...',
+        targetLang: targetLang,
+        actualLang: actualLang,
+        voiceName: voice.name
+    });
+
+    // Show voice indicator
+    $('#voiceIndicator').addClass('active').show();
+    $('#voice_search').addClass('voice-active');
+
+    // Set 25 second timeout ONLY for waiting for speech to start
+    let startTimeout = setTimeout(() => {
+        console.warn('⚠️ Speech failed to start within 25 seconds');
+        synth.cancel();
+        cleanupVoice();
+    }, 25000);
+
+    let speechStarted = false;
+
+    // Event handlers
+    utterance.onstart = () => {
+        speechStarted = true;
+        console.log('✅ Speech started - clearing timeout, will read complete response');
+        clearTimeout(startTimeout); // Clear timeout once speech starts
+        $('#voiceIndicator').addClass('speaking');
+    };
+
     utterance.onend = () => {
-        console.log('Finished speaking AI response');
-        // Hide voice indicator
-        $('#voiceIndicator').removeClass('active');
-        $('#voice_search').removeClass('voice-active');
-        // Reset voice conversation flag after response is complete
-        isVoiceConversation = false;
+        console.log('✅ Speech completed - full response read');
+        if (!speechStarted) clearTimeout(startTimeout);
+        cleanupVoice();
     };
 
     utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event.error);
-        // Hide voice indicator on error
-        $('#voiceIndicator').removeClass('active');
-        $('#voice_search').removeClass('voice-active');
-        isVoiceConversation = false;
+        console.error('❌ Speech error:', event.error, 'Target language:', targetLang);
+        
+        // Enhanced error handling with language-specific messages
+        if (event.error === 'language-not-supported') {
+            console.warn('⚠️ Language not supported:', targetLang, 'trying English fallback');
+            // Could attempt fallback here if needed
+        } else if (event.error === 'voice-unavailable') {
+            console.warn('⚠️ Voice unavailable for language:', targetLang);
+        } else if (event.error === 'network') {
+            console.warn('⚠️ Network error during speech synthesis');
+        } else if (event.error === 'synthesis-failed') {
+            console.warn('⚠️ Speech synthesis failed for language:', targetLang);
+        }
+        
+        if (!speechStarted) clearTimeout(startTimeout);
+        cleanupVoice();
     };
 
-    // Stop any current speech and speak the new response
-    stopSpeech();
+    // Start speaking
+    console.log('🚀 Starting speech');
     synth.speak(utterance);
+
+    function cleanupVoice() {
+        $('#voiceIndicator').removeClass('active speaking').hide();
+        $('#voice_search').removeClass('voice-active speaking');
+        console.log('🧹 Voice UI cleaned up');
+    }
 }
 $(document).ready(function() {
+    // Voice response controls
+    $('#stopVoiceBtn').click(function() {
+        console.log('🛑 Stop voice button clicked');
+        stopSpeech();
+        cleanupVoiceUI();
+    });
+
     // Mic UI handlers
     $(document).click(function() {
         $('#microphone').removeClass('visible');
@@ -247,8 +368,18 @@ $(document).ready(function() {
     function checkhSpeach() {
         $('#speakBtn').removeClass('active');
         
-        // Mark this as a voice-initiated conversation
+        // Mark this as a voice-initiated conversation with extended timeout for long responses
         isVoiceConversation = true;
+        console.log('🎤 Voice conversation initiated');
+        
+        // Set a generous timeout for voice conversation (5 minutes) to handle long backend processing
+        if (window.voiceConversationTimeout) {
+            clearTimeout(window.voiceConversationTimeout);
+        }
+        window.voiceConversationTimeout = setTimeout(() => {
+            console.log('⏰ Voice conversation timeout - resetting state');
+            isVoiceConversation = false;
+        }, 300000); // 5 minutes timeout
         
         if (r == 0) {
             // new Audio('assets/audio/end.mp3').play();

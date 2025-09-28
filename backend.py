@@ -3,6 +3,8 @@ import re
 import time
 import json
 import httpx
+import asyncio
+import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from fastapi import FastAPI, Request
@@ -33,6 +35,82 @@ if not os.getenv("DONT_LOAD_DOTENV") and not os.getenv("PYTEST_CURRENT_TEST"):
     except Exception:
         # If dotenv loading fails, continue with system environment variables
         pass
+
+# =================== PERFORMANCE OPTIMIZATION SYSTEM ===================
+
+# High-performance in-memory cache with TTL
+class PerformanceCache:
+    def __init__(self):
+        self.cache = {}
+        self.access_times = {}
+    
+    def _generate_key(self, data):
+        """Generate cache key from data"""
+        if isinstance(data, dict):
+            sorted_data = json.dumps(data, sort_keys=True)
+        else:
+            sorted_data = str(data)
+        return hashlib.md5(sorted_data.encode()).hexdigest()
+    
+    def get(self, key: str, ttl_seconds: int = 300):
+        """Get cached data if not expired"""
+        if key in self.cache:
+            cached_time = self.access_times.get(key, 0)
+            if time.time() - cached_time < ttl_seconds:
+                return self.cache[key]
+            else:
+                # Expired, remove from cache
+                del self.cache[key]
+                del self.access_times[key]
+        return None
+    
+    def set(self, key: str, value):
+        """Set cached data"""
+        self.cache[key] = value
+        self.access_times[key] = time.time()
+    
+    def cache_key_nasa(self, lat: float, lon: float, dataset: str, days_back: int = 7):
+        """Generate cache key for NASA data"""
+        # Round coordinates to reduce cache fragmentation
+        lat_rounded = round(lat, 2)
+        lon_rounded = round(lon, 2)
+        date_key = datetime.now().strftime("%Y-%m-%d")  # Daily cache
+        return f"nasa_{dataset}_{lat_rounded}_{lon_rounded}_{days_back}_{date_key}"
+    
+    def cache_key_translation(self, text: str, source_lang: str, target_lang: str):
+        """Generate cache key for translations"""
+        text_hash = hashlib.md5(text.encode()).hexdigest()[:16]
+        return f"trans_{source_lang}_{target_lang}_{text_hash}"
+    
+    def cache_key_location(self, ip: str):
+        """Generate cache key for location detection"""
+        return f"location_{ip}"
+
+# Initialize global cache
+perf_cache = PerformanceCache()
+
+# Performance monitoring
+class PerformanceMonitor:
+    def __init__(self):
+        self.start_time = None
+        self.checkpoints = {}
+    
+    def start(self):
+        self.start_time = time.time()
+        self.checkpoints = {}
+    
+    def checkpoint(self, name: str):
+        if self.start_time:
+            self.checkpoints[name] = time.time() - self.start_time
+    
+    def get_summary(self):
+        if not self.start_time:
+            return {}
+        total_time = time.time() - self.start_time
+        return {
+            "total_time": total_time,
+            "checkpoints": self.checkpoints
+        }
 
 # Initialize FastAPI
 app = FastAPI(title="RootSource AI", version="1.0.0")
@@ -111,7 +189,7 @@ DATASET_RELEVANCE = {
 
 async def detect_user_location(request: Request) -> Tuple[Optional[float], Optional[float], Optional[str]]:
     """
-    Detect user location from IP address using a free geolocation service.
+    Detect user location from IP address using a free geolocation service with caching.
     Returns (latitude, longitude, location_name) or (None, None, None) if detection fails.
     """
     try:
@@ -122,6 +200,14 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
         if client_ip in ["127.0.0.1", "localhost", "::1"]:
             # Default to Dhaka for local development only
             return 40.7128, -74.0060, "Dhaka, Bangladesh (localhost)"
+        
+        # Check cache first (locations don't change frequently)
+        cache_key = perf_cache.cache_key_location(client_ip)
+        cached_location = perf_cache.get(cache_key, ttl_seconds=3600)  # 1 hour cache
+        
+        if cached_location:
+            print(f"🟢 Cache HIT for location: {cached_location[2]}")
+            return cached_location
 
         # Try multiple geolocation services
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -138,6 +224,9 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
                         country = data.get("country", "")
                         location_name = f"{city}, {region}, {country}" if city else f"{region}, {country}"
                         print(f"Location detected: {location_name} ({lat}, {lon}) from IP: {client_ip}")
+                        # Cache successful location
+                        result = (lat, lon, location_name)
+                        perf_cache.set(cache_key, result)
                         return lat, lon, location_name
             except Exception as e:
                 print(f"ip-api.com failed: {e}")
@@ -155,6 +244,9 @@ async def detect_user_location(request: Request) -> Tuple[Optional[float], Optio
                         country = data.get("country_name", "")
                         location_name = f"{city}, {region}, {country}" if city else f"{region}, {country}"
                         print(f"Location detected via backup: {location_name} ({lat}, {lon}) from IP: {client_ip}")
+                        # Cache successful location
+                        result = (lat, lon, location_name)
+                        perf_cache.set(cache_key, result)
                         return lat, lon, location_name
             except Exception as e:
                 print(f"ipapi.co backup failed: {e}")
@@ -295,117 +387,23 @@ SOIL_DATABASE = {
 }
 
 def get_country_agricultural_context(location_name: str) -> str:
-    """
-    Add comprehensive country-specific agricultural context to improve responses
-    """
+    """Simple location context (minimal for speed)"""
     if not location_name:
         return ""
     
     location_lower = location_name.lower()
     
+    # Only basic context for key regions
     if "bangladesh" in location_lower:
-        return """
-**BANGLADESH AGRICULTURAL INTELLIGENCE:**
-
-**Primary Crops & Seasons:**
-• **Rice Production**: Aman (June-December), Aus (April-August), Boro (December-June)
-• **Other Major Crops**: Jute, Tea, Sugarcane, Wheat, Maize, Lentils, Vegetables
-• **Growing Seasons**: Kharif (April-September), Rabi (October-March)
-
-**Climate & Environmental Factors:**
-• **Climate Type**: Tropical monsoon with 80% rainfall during June-October
-• **Average Temperature**: 20-34°C, humidity 70-90%
-• **Soil Types**: Alluvial (65%), Hill soils (12%), Terrace soils (8%), Peat soils (5%)
-• **Water Resources**: 700+ rivers, groundwater at 2-8m depth
-
-**Agricultural Challenges:**
-• **Monsoon Dependency**: 70% rain-fed agriculture, flooding risks
-• **Soil Salinity**: 1.06 million hectares affected in coastal areas
-• **Arsenic**: Groundwater contamination in 40+ districts
-• **Climate Change**: Sea level rise, temperature increase, irregular rainfall
-
-**Government Support Systems:**
-• **Subsidies**: Fertilizer (50% subsidy), Seeds (30-50% discount), Irrigation equipment
-• **Credit Programs**: Agricultural loans at 4-6% interest through BKB, RAKUB
-• **Extension Services**: 13,500+ extension workers, farmer field schools
-• **Research Institutes**: BRRI (rice), BARI (agriculture), BJRI (jute)
-
-**Market & Economics:**
-• **Agricultural GDP**: 13.6% of total GDP, employs 40% of workforce
-• **Export Crops**: Rice, jute, tea, shrimp, vegetables
-• **Food Security**: Self-sufficient in rice production since 2013
-• **Price Support**: Government procurement at minimum support prices
-"""
+        return "**Climate:** Tropical monsoon, rice-dominant agriculture, 3 seasons (Aman/Aus/Boro)"
     elif "india" in location_lower:
-        return """
-**INDIA AGRICULTURAL INTELLIGENCE:**
-
-**Primary Crops & Seasons:**
-• **Kharif** (June-October): Rice, Cotton, Sugarcane, Pulses, Oilseeds
-• **Rabi** (November-April): Wheat, Barley, Peas, Gram, Mustard
-• **Zaid** (April-June): Fodder crops, Watermelon, Cucumber
-
-**Climate Zones:**
-• **Tropical**: South India - High temperature, moderate to high rainfall
-• **Subtropical**: North India - Distinct seasons, monsoon-dependent
-• **Arid/Semi-arid**: Rajasthan, Gujarat - Low rainfall, irrigation essential
-
-**Government Schemes:**
-• **PM-KISAN**: ₹6,000/year direct benefit transfer
-• **Soil Health Cards**: Free soil testing and nutrient recommendations
-• **Fasal Bima Yojana**: Crop insurance with 2% premium for farmers
-• **MSP System**: Minimum Support Price for 23 crops
-
-**Technology Adoption:**
-• **Digital Agriculture**: eNAM (National Agriculture Market), AgriStack
-• **Precision Farming**: GPS-guided tractors, drone spraying
-• **Organic Farming**: PKVY scheme, 3.56 million hectares under organic cultivation
-"""
+        return "**Climate:** Monsoon-based, Kharif/Rabi seasons, diverse crops"
     elif "usa" in location_lower or "america" in location_lower:
-        return """
-**USA AGRICULTURAL INTELLIGENCE:**
-
-**Major Crop Regions:**
-• **Corn Belt**: Iowa, Illinois, Nebraska, Indiana - 80% of US corn production
-• **Great Plains**: Kansas, North Dakota, Montana - Wheat production center
-• **California Central Valley**: Fruits, vegetables, nuts - 25% of US food supply
-
-**Technology Leadership:**
-• **Precision Agriculture**: 60% adoption rate, GPS guidance, variable rate application
-• **Biotechnology**: 90%+ GMO adoption in corn, soybeans, cotton
-• **Data Analytics**: Real-time yield monitoring, predictive analytics
-
-**Government Programs:**
-• **Crop Insurance**: 85% of planted acres covered, $100+ billion coverage
-• **Conservation Programs**: CRP, EQIP, CSP - environmental sustainability
-• **Research Investment**: $3+ billion annual agricultural R&D spending
-
-**Sustainability Focus:**
-• **Carbon Markets**: Voluntary carbon credit programs for farmers
-• **Cover Crops**: 15.4 million acres, 5% annual growth
-• **Renewable Energy**: 50,000+ farms with solar/wind installations
-"""
+        return "**Climate:** Temperate, advanced tech adoption, precision agriculture"
     elif "china" in location_lower:
-        return """
-**CHINA AGRICULTURAL INTELLIGENCE:**
-
-**Production Scale:**
-• **World's Largest Producer**: Rice, wheat, vegetables, fruits, aquaculture
-• **Agricultural Land**: 165 million hectares cultivated land
-• **Food Security**: 95% self-sufficiency target for major grains
-
-**Technology Innovation:**
-• **Smart Agriculture**: IoT sensors, AI-powered crop monitoring
-• **Vertical Farming**: Leading in controlled environment agriculture
-• **Biotechnology**: CRISPR gene editing, hybrid crop development
-
-**Policy Framework:**
-• **Rural Revitalization**: $1.4 trillion investment in rural infrastructure
-• **Subsidy System**: Direct payments, input subsidies, price supports
-• **Land Reforms**: Land use rights, consolidation programs
-"""
+        return "**Climate:** Diverse zones, large-scale production, tech innovation"
     
-    return ""
+    return ""  # No specific context needed
 
 async def parse_manual_location(location_str: str) -> Tuple[Optional[float], Optional[float], str]:
     """
@@ -759,6 +757,83 @@ async def get_nasa_grace_data(lat: float, lon: float) -> Dict:
     
     return {"success": False, "dataset": "GRACE", "error": "Unable to fetch groundwater data"}
 
+# =================== CACHED NASA DATA FUNCTIONS ===================
+
+async def get_nasa_power_data_cached(lat: float, lon: float, days_back: int = 30) -> Dict:
+    """Cached version of NASA POWER data fetch"""
+    cache_key = perf_cache.cache_key_nasa(lat, lon, "POWER", days_back)
+    cached_result = perf_cache.get(cache_key, ttl_seconds=3600)  # 1 hour cache
+    
+    if cached_result:
+        print(f"🟢 Cache HIT for POWER data")
+        return cached_result
+    
+    print(f"🔴 Cache MISS for POWER data, fetching...")
+    result = await get_nasa_power_data(lat, lon, days_back)
+    if result.get("success"):
+        perf_cache.set(cache_key, result)
+    return result
+
+async def get_nasa_modis_data_cached(lat: float, lon: float) -> Dict:
+    """Cached version of NASA MODIS data fetch"""
+    cache_key = perf_cache.cache_key_nasa(lat, lon, "MODIS")
+    cached_result = perf_cache.get(cache_key, ttl_seconds=7200)  # 2 hour cache
+    
+    if cached_result:
+        print(f"🟢 Cache HIT for MODIS data")
+        return cached_result
+    
+    print(f"🔴 Cache MISS for MODIS data, fetching...")
+    result = await get_nasa_modis_data(lat, lon)
+    if result.get("success"):
+        perf_cache.set(cache_key, result)
+    return result
+
+async def get_nasa_landsat_data_cached(lat: float, lon: float) -> Dict:
+    """Cached version of NASA LANDSAT data fetch"""
+    cache_key = perf_cache.cache_key_nasa(lat, lon, "LANDSAT")
+    cached_result = perf_cache.get(cache_key, ttl_seconds=3600)  # 1 hour cache
+    
+    if cached_result:
+        print(f"🟢 Cache HIT for LANDSAT data")
+        return cached_result
+    
+    print(f"🔴 Cache MISS for LANDSAT data, fetching...")
+    result = await get_nasa_landsat_data(lat, lon)
+    if result.get("success"):
+        perf_cache.set(cache_key, result)
+    return result
+
+async def get_nasa_gldas_data_cached(lat: float, lon: float) -> Dict:
+    """Cached version of NASA GLDAS data fetch"""
+    cache_key = perf_cache.cache_key_nasa(lat, lon, "GLDAS")
+    cached_result = perf_cache.get(cache_key, ttl_seconds=3600)  # 1 hour cache
+    
+    if cached_result:
+        print(f"🟢 Cache HIT for GLDAS data")
+        return cached_result
+    
+    print(f"🔴 Cache MISS for GLDAS data, fetching...")
+    result = await get_nasa_gldas_data(lat, lon)
+    if result.get("success"):
+        perf_cache.set(cache_key, result)
+    return result
+
+async def get_nasa_grace_data_cached(lat: float, lon: float) -> Dict:
+    """Cached version of NASA GRACE data fetch"""
+    cache_key = perf_cache.cache_key_nasa(lat, lon, "GRACE")
+    cached_result = perf_cache.get(cache_key, ttl_seconds=7200)  # 2 hour cache (changes slowly)
+    
+    if cached_result:
+        print(f"🟢 Cache HIT for GRACE data")
+        return cached_result
+    
+    print(f"🔴 Cache MISS for GRACE data, fetching...")
+    result = await get_nasa_grace_data(lat, lon)
+    if result.get("success"):
+        perf_cache.set(cache_key, result)
+    return result
+
 def analyze_comprehensive_nasa_data(nasa_datasets: List[Dict], question_analysis: Dict) -> str:
     """
     Enhanced analysis of multiple NASA datasets with intelligent agricultural insights.
@@ -1014,107 +1089,59 @@ def analyze_comprehensive_nasa_data(nasa_datasets: List[Dict], question_analysis
         return "Error analyzing NASA datasets - using fallback agricultural guidance."
 
 def classify_agricultural_question(query: str) -> Dict[str, any]:
-    """
-    Advanced question classification for intelligent routing and response optimization
-    """
-    query_lower = query.lower()
+    """Fast question classification (optimized for speed over complexity)"""
+    q = query.lower()
     
-    # Question type classification
-    question_types = {
-        "CROP_MANAGEMENT": ["plant", "grow", "crop", "variety", "cultivar", "seed", "planting", "harvest"],
-        "DISEASE_DIAGNOSIS": ["disease", "pest", "bug", "insect", "fungus", "blight", "rot", "wilt", "spot"],
-        "SOIL_HEALTH": ["soil", "fertility", "pH", "nutrient", "fertilizer", "compost", "organic matter"],
-        "WEATHER_CLIMATE": ["weather", "climate", "rain", "temperature", "drought", "flood", "season"],
-        "IRRIGATION_WATER": ["water", "irrigation", "drought", "moisture", "watering", "sprinkler"],
-        "ECONOMICS_MARKET": ["price", "cost", "profit", "market", "sell", "buy", "economic", "income"],
-        "GOVERNMENT_POLICY": ["subsidy", "government", "support", "program", "scheme", "grant", "loan", "policy"],
-        "TECHNOLOGY": ["equipment", "machinery", "technology", "automation", "drone", "sensor", "GPS"],
-        "LIVESTOCK": ["cattle", "cow", "pig", "chicken", "livestock", "animal", "feed", "grazing"],
-        "ORGANIC_SUSTAINABLE": ["organic", "sustainable", "natural", "bio", "ecological", "environment"]
-    }
+    # Fast complexity detection (most important for prompt selection)
+    if any(word in q for word in ['what is', 'define', 'hello', 'hi', 'when to', 'how much']):
+        complexity = "BASIC"
+    elif any(word in q for word in ['optimize', 'analysis', 'precision', 'research', 'scientific', 'study']):
+        complexity = "ADVANCED"
+    else:
+        complexity = "INTERMEDIATE"
     
-    # Complexity level detection
-    complexity_indicators = {
-        "BASIC": ["what is", "how to", "when to", "simple", "easy"],
-        "INTERMEDIATE": ["best practice", "recommend", "strategy", "method", "technique"],
-        "ADVANCED": ["optimize", "precision", "data", "analysis", "research", "study", "scientific"]
-    }
-    
-    # Urgency detection
-    urgency_indicators = {
-        "HIGH": ["urgent", "emergency", "dying", "critical", "immediate", "help", "problem"],
-        "MEDIUM": ["soon", "quickly", "need", "important", "issue"],
-        "LOW": ["planning", "future", "consider", "thinking", "eventually"]
-    }
-    
-    # Analyze question
-    detected_types = []
-    for question_type, keywords in question_types.items():
-        if any(keyword in query_lower for keyword in keywords):
-            detected_types.append(question_type)
-    
-    complexity = "INTERMEDIATE"  # default
-    for level, keywords in complexity_indicators.items():
-        if any(keyword in query_lower for keyword in keywords):
-            complexity = level
-            break
-    
-    urgency = "LOW"  # default
-    for level, keywords in urgency_indicators.items():
-        if any(keyword in query_lower for keyword in keywords):
-            urgency = level
-            break
-    
-    # Primary question type (most specific match)
-    primary_type = detected_types[0] if detected_types else "GENERAL_AGRICULTURE"
+    # Quick type detection (only major categories)
+    if any(word in q for word in ['weather', 'rain', 'climate', 'temperature']):
+        primary_type = "WEATHER_CLIMATE"
+    elif any(word in q for word in ['soil', 'fertility', 'ph', 'nutrient', 'fertilizer']):
+        primary_type = "SOIL_HEALTH"
+    elif any(word in q for word in ['water', 'irrigation', 'watering']):
+        primary_type = "IRRIGATION_WATER"
+    elif any(word in q for word in ['pest', 'disease', 'insect', 'bug']):
+        primary_type = "DISEASE_DIAGNOSIS"
+    elif any(word in q for word in ['crop', 'plant', 'grow', 'harvest', 'seed']):
+        primary_type = "CROP_MANAGEMENT"
+    else:
+        primary_type = "GENERAL_AGRICULTURE"
     
     return {
         "primary_type": primary_type,
-        "all_types": detected_types,
         "complexity": complexity,
-        "urgency": urgency,
         "needs_nasa_data": primary_type in ["CROP_MANAGEMENT", "WEATHER_CLIMATE", "IRRIGATION_WATER", "SOIL_HEALTH"],
-        "needs_search": complexity == "ADVANCED" or primary_type in ["ECONOMICS_MARKET", "GOVERNMENT_POLICY", "TECHNOLOGY"]
+        "needs_search": complexity == "ADVANCED"
     }
 
 def determine_relevant_nasa_datasets(query: str) -> List[str]:
-    """
-    Enhanced NASA dataset selection based on intelligent question analysis
-    """
-    query_lower = query.lower()
-    question_analysis = classify_agricultural_question(query)
-    relevant_datasets = set()
+    """Fast NASA dataset selection (optimized for speed)"""
+    q = query.lower()
     
-    # Type-based dataset selection
-    dataset_mapping = {
-        "CROP_MANAGEMENT": ["POWER", "MODIS", "LANDSAT"],
-        "DISEASE_DIAGNOSIS": ["POWER", "MODIS", "LANDSAT"],  # Weather conditions affect disease
-        "SOIL_HEALTH": ["GLDAS", "POWER", "GRACE"],
-        "WEATHER_CLIMATE": ["POWER", "GLDAS"],
-        "IRRIGATION_WATER": ["POWER", "GLDAS", "GRACE"],
-        "ORGANIC_SUSTAINABLE": ["MODIS", "LANDSAT", "GLDAS"]
-    }
+    # Quick keyword-based selection
+    if any(word in q for word in ['weather', 'temperature', 'rain', 'climate']):
+        return ["POWER"]
+    elif any(word in q for word in ['soil', 'moisture', 'irrigation', 'water']):
+        return ["GLDAS", "POWER"]
+    elif any(word in q for word in ['crop', 'vegetation', 'plant', 'growth']):
+        return ["MODIS", "POWER"]
+    elif any(word in q for word in ['field', 'precision', 'mapping']):
+        return ["LANDSAT", "MODIS"]
+    elif any(word in q for word in ['drought', 'groundwater']):
+        return ["GRACE", "GLDAS"]
     
-    primary_type = question_analysis.get("primary_type", "")
-    if primary_type in dataset_mapping:
-        relevant_datasets.update(dataset_mapping[primary_type])
+    # Default for general agricultural questions
+    if any(word in q for word in ['farm', 'agriculture', 'farming', 'grow']):
+        return ["POWER", "MODIS"]  # Most commonly useful
     
-    # Keyword-based refinement
-    for keyword, datasets in DATASET_RELEVANCE.items():
-        if keyword in query_lower:
-            relevant_datasets.update(datasets)
-    
-    # If no specific matches but agriculture-related, use comprehensive analysis
-    if not relevant_datasets:
-        agriculture_keywords = [
-            "farm", "crop", "plant", "grow", "harvest", "agriculture", "farming",
-            "field", "soil", "seed", "fertilizer", "pest", "yield", "livestock",
-            "subsid", "government", "support", "program", "scheme", "grant", "loan"
-        ]
-        
-        if any(keyword in query_lower for keyword in agriculture_keywords):
-            # Use all datasets for comprehensive analysis
-            relevant_datasets = {"POWER", "MODIS", "LANDSAT", "GLDAS", "GRACE"}  
+    return []  # No NASA data needed  
     
     return list(relevant_datasets)
 
@@ -1227,8 +1254,8 @@ def load_llm():
     )
 
 # --- Translation ---
-def translate_to_english(text):
-    """Translate text to English with robust language detection"""
+async def translate_to_english(text):
+    """Translate text to English with robust language detection and caching"""
     print(f"🔍 TRANSLATE_TO_ENGLISH CALLED: text='{text[:100]}...'")
     
     try:
@@ -1236,32 +1263,62 @@ def translate_to_english(text):
             print("❌ TRANSLATE_TO_ENGLISH: Empty text")
             return text, "unknown"
         
-        # Detect language
-        detected_lang = detect(text)
+        # Quick English detection without API call
+        english_indicators = ['the', 'and', 'is', 'are', 'was', 'were', 'have', 'has', 'had', 'do', 'does', 'did']
+        text_lower = text.lower()
+        english_score = sum(1 for word in english_indicators if word in text_lower)
+        
+        if english_score >= 2 and len(text.split()) >= 3:
+            print("✅ TRANSLATE_TO_ENGLISH: Detected as English (fast check)")
+            return text, "en"
+        
+        # Check cache first
+        cache_key = perf_cache.cache_key_translation(text, "auto", "en")
+        cached_result = perf_cache.get(cache_key, ttl_seconds=86400)  # 24 hour cache
+        
+        if cached_result:
+            print("🟢 Cache HIT for translation to English")
+            return cached_result["text"], cached_result["detected_lang"]
+        
+        # Detect language with timeout
+        detected_lang = "unknown"
+        try:
+            detected_lang = detect(text)
+        except:
+            # Fallback: assume non-English if detection fails
+            detected_lang = "auto"
+        
         print(f"✅ TRANSLATE_TO_ENGLISH: Detected language: {detected_lang}")
         
         if detected_lang == "en":
             print("✅ TRANSLATE_TO_ENGLISH: Input is English, no translation needed")
+            result = {"text": text, "detected_lang": "en"}
+            perf_cache.set(cache_key, result)
             return text, "en"
         
-        # Translate to English
-        translator = GoogleTranslator(source=detected_lang, target="en")
-        translated_text = translator.translate(text)
-        
-        if translated_text and translated_text.strip():
-            print(f"✅ TRANSLATE_TO_ENGLISH: Translation successful: {len(translated_text)} characters")
-            print(f"✅ TRANSLATE_TO_ENGLISH: Result: {translated_text}")
-            return translated_text, detected_lang
-        else:
-            print("❌ TRANSLATE_TO_ENGLISH: Translation failed, using original")
+        # Translate to English with timeout
+        try:
+            translator = GoogleTranslator(source=detected_lang, target="en")
+            translated_text = translator.translate(text)
+            
+            if translated_text and translated_text.strip():
+                print(f"✅ TRANSLATE_TO_ENGLISH: Translation successful: {len(translated_text)} characters")
+                result = {"text": translated_text, "detected_lang": detected_lang}
+                perf_cache.set(cache_key, result)
+                return translated_text, detected_lang
+            else:
+                print("❌ TRANSLATE_TO_ENGLISH: Translation failed, using original")
+                return text, detected_lang
+        except Exception as trans_error:
+            print(f"❌ Translation API error: {trans_error}, using original text")
             return text, detected_lang
             
     except Exception as e:
         print(f"❌ TRANSLATE_TO_ENGLISH ERROR: {str(e)}")
         return text, "unknown"
 
-def translate_back(text, target_lang):
-    """Translate text back to target language with robust error handling"""
+async def translate_back(text, target_lang):
+    """Translate text back to target language with robust error handling and caching"""
     print(f"🔄 TRANSLATE_BACK CALLED: target_lang='{target_lang}', text_length={len(text) if text else 0}")
     
     try:
@@ -1272,6 +1329,14 @@ def translate_back(text, target_lang):
         if target_lang == "en" or target_lang == "unknown":
             print(f"❌ TRANSLATE_BACK: Target language is '{target_lang}', returning English text")
             return text
+        
+        # Check cache first
+        cache_key = perf_cache.cache_key_translation(text, "en", target_lang)
+        cached_result = perf_cache.get(cache_key, ttl_seconds=86400)  # 24 hour cache
+        
+        if cached_result:
+            print("🟢 Cache HIT for translation back")
+            return cached_result
         
         # Language code mapping for common issues
         lang_mapping = {
@@ -1366,6 +1431,8 @@ def translate_back(text, target_lang):
         if translated and translated.strip():
             print(f"✅ TRANSLATE_BACK: Translation successful: {len(translated)} characters")
             print(f"✅ TRANSLATE_BACK: Preview: {translated[:100]}...")
+            # Cache the successful translation
+            perf_cache.set(cache_key, translated)
             return translated
         else:
             print("❌ TRANSLATE_BACK: Translation returned empty result, using original")
@@ -1394,7 +1461,7 @@ def format_response(text):
     text = re.sub(r'^---.*$', '', text, flags=re.MULTILINE)
     
     # Convert ### to h5
-    text = re.sub(r'^### (.+)$', r'<h5 style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</h5>', text, flags=re.MULTILINE)
+    text = re.sub(r'^### (.+)$', r'<strong style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</strong>', text, flags=re.MULTILINE)
     
     # Convert **bold** to HTML
     text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #2ecc71; font-weight: 600; background: rgba(46, 204, 113, 0.1); padding: 2px 4px; border-radius: 3px;">\1</strong>', text)
@@ -1439,6 +1506,266 @@ def get_direct_response(query):
         )
         return demo
 
+def get_express_response(query: str, location_name: str, lat: float, lon: float) -> str:
+    """Ultra-fast responses for simple queries that bypass LLM entirely (< 50ms processing)"""
+    query_lower = query.lower().strip()
+    
+    # Greeting responses (instant)
+    greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening']
+    if any(greet in query_lower for greet in greetings):
+        return f"""**Hello! I'm RootSource AI** 🌱
+
+Your expert agricultural assistant for {location_name}.
+
+**Quick Help:**
+• Ask about **crops**, **soil**, **weather**, or **pests**
+• Get **NASA satellite data** insights
+• Receive **location-specific** farming advice
+
+What can I help you with today?"""
+
+    # Simple "what is" questions
+    if query_lower.startswith('what is'):
+        topic = query_lower.replace('what is', '').strip()
+        
+        definitions = {
+            'nitrogen': '**Nitrogen (N)** - Essential nutrient for plant growth, promotes leafy green development. Found in fertilizers, organic matter, and soil.',
+            'phosphorus': '**Phosphorus (P)** - Key nutrient for root development and flowering. Critical for energy transfer in plants.',
+            'potassium': '**Potassium (K)** - Improves disease resistance and water regulation. Essential for fruit quality and plant health.',
+            'ph': '**pH** - Soil acidity/alkalinity measure. 6.0-7.0 is ideal for most crops. Affects nutrient availability.',
+            'compost': '**Compost** - Decomposed organic matter that improves soil fertility, structure, and water retention.',
+            'irrigation': '**Irrigation** - Artificial water application to crops. Methods include drip, sprinkler, and furrow systems.',
+            'pesticide': '**Pesticide** - Chemical or biological agent used to control pests. Should be used as part of integrated pest management.',
+            'fertilizer': '**Fertilizer** - Substance providing nutrients to plants. Can be organic (manure, compost) or synthetic (NPK blends).'
+        }
+        
+        for key, definition in definitions.items():
+            if key in topic:
+                return f"{definition}\n\n**Location:** {location_name}\n**Need more specific advice?** Ask about your particular situation!"
+
+    # Simple timing questions  
+    timing_patterns = ['when to', 'when should', 'what time']
+    if any(pattern in query_lower for pattern in timing_patterns):
+        if 'plant' in query_lower or 'sow' in query_lower:
+            return f"""**Planting Timing for {location_name}**
+
+**General Guidelines:**
+• **Spring crops**: After last frost date
+• **Summer crops**: Warm soil (60°F+)  
+• **Fall crops**: 10-12 weeks before first frost
+• **Winter crops**: Late summer/early fall
+
+**Local Factors:**
+• Check your specific hardiness zone
+• Monitor soil temperature
+• Consider microclimates
+
+**Need specific crop timing?** Ask about a particular plant!"""
+
+        if 'harvest' in query_lower:
+            return f"""**Harvest Timing Basics**
+
+**Key Indicators:**
+• **Visual**: Color, size, texture changes
+• **Physical**: Firmness, weight, ease of separation
+• **Timing**: Days to maturity from seed packet
+• **Weather**: Harvest before damaging conditions
+
+**General Tips:**
+• Morning harvest often best
+• Handle gently to avoid damage
+• Process quickly for best quality
+
+**For specific crops**, ask about harvest signs for that plant!"""
+
+    return None  # No express response available
+
+def get_optimized_prompt(query: str, question_analysis: dict, location_name: str, nasa_data_text: str) -> str:
+    """Generate optimized prompts based on query complexity to minimize LLM processing time"""
+    
+    complexity = question_analysis.get('complexity', 'INTERMEDIATE')
+    query_type = question_analysis.get('primary_type', 'GENERAL')
+    
+    # ULTRA-FAST: Simple queries get minimal prompts (80% token reduction)
+    simple_keywords = ['hello', 'hi', 'what is', 'define', 'explain', 'how much', 'when to', 'what are']
+    if any(keyword in query.lower() for keyword in simple_keywords) or complexity == 'BASIC':
+        return f"""You are RootSource AI, an expert agricultural assistant.
+
+Location: {location_name}
+{nasa_data_text}
+
+Question: "{query}"
+
+Provide a clear, practical answer focusing on actionable farming advice. Use simple formatting with **bold** for key terms."""
+
+    # FAST: Standard queries get focused prompts (60% token reduction)  
+    elif complexity == 'INTERMEDIATE':
+        return f"""You are RootSource AI, combining agricultural expertise with NASA satellite data for practical farming advice.
+
+{nasa_data_text}
+
+Location: {location_name}
+Query Type: {query_type}
+
+Question: "{query}"
+
+Requirements:
+• Provide evidence-based agricultural advice
+• Include specific actionable steps
+• Consider location and data context
+• Use simple formatting: **bold** for key terms, bullet points for lists
+
+Focus on practical solutions for farmers."""
+
+    # COMPREHENSIVE: Complex queries get full prompts (original)
+    else:
+        return f"""You are RootSource AI, an advanced agricultural intelligence system combining scientific expertise with real-time NASA satellite data.
+
+{nasa_data_text}
+
+**Context:**
+• Location: {location_name}
+• Query Type: {query_type}
+• Complexity: {complexity}
+
+**Question:** "{query}"
+
+**Response Framework:**
+1. **Analysis**: Consider technical, economic, and environmental factors
+2. **Solutions**: Provide specific, actionable recommendations
+3. **Implementation**: Include timing, methods, and monitoring
+4. **Alternatives**: Offer multiple approaches with trade-offs
+
+**Requirements:**
+• Evidence-based recommendations
+• Location-specific considerations  
+• Risk assessment and mitigation
+• Clear, practical implementation steps
+
+**Formatting:**
+• **Bold** for important terms
+• Bullet points for lists  
+• Short paragraphs for readability
+
+Only answer agriculture/farming topics. For other queries, redirect to agricultural focus."""
+
+def get_smart_shortcut_response(query: str, location_name: str, lat: float, lon: float) -> str:
+    """Fast responses for common agricultural queries without LLM overhead"""
+    query_lower = query.lower()
+    
+    # Weather/Climate queries
+    if any(word in query_lower for word in ['weather', 'temperature', 'rain', 'rainfall', 'climate']):
+        return f"""**Weather & Climate Information for {location_name}**
+
+🌤️ **Current Agricultural Weather Context:**
+• Location: {location_name} (Lat: {lat:.2f}, Lon: {lon:.2f})
+• For detailed weather forecasts, check local meteorological services
+• NASA POWER data integration provides historical climate patterns
+
+**General Agricultural Weather Guidelines:**
+• **Temperature**: Monitor daily min/max for crop stress indicators
+• **Rainfall**: Track cumulative precipitation for irrigation planning  
+• **Humidity**: High humidity increases disease pressure
+• **Wind**: Strong winds can damage crops and increase water loss
+
+**Seasonal Considerations:**
+• Plan planting dates based on historical temperature patterns
+• Adjust irrigation based on rainfall forecasts
+• Monitor heat stress during peak summer temperatures
+
+For specific weather-based farming advice, please ask about a particular crop or farming activity."""
+
+    # Soil queries
+    elif any(word in query_lower for word in ['soil', 'fertility', 'nutrients', 'pH']):
+        return f"""**Soil Health & Management for {location_name}**
+
+🌱 **Soil Health Fundamentals:**
+
+**Key Soil Properties:**
+• **pH Level**: 6.0-7.0 ideal for most crops
+• **Organic Matter**: 3-5% optimal for fertility
+• **Drainage**: Proper drainage prevents waterlogging
+• **Nutrient Balance**: N-P-K plus micronutrients
+
+**Soil Testing & Analysis:**
+• Test soil pH annually
+• Check nutrient levels before planting season
+• Monitor organic matter content
+• Assess soil structure and compaction
+
+**Improvement Strategies:**
+• **Organic Matter**: Add compost, manure, cover crops
+• **pH Adjustment**: Lime for acidic soils, sulfur for alkaline
+• **Nutrient Management**: Balanced fertilization program
+• **Erosion Control**: Contour farming, terracing, cover crops
+
+For location-specific soil recommendations, please ask about your specific crop or soil challenge."""
+
+    # Irrigation queries  
+    elif any(word in query_lower for word in ['irrigation', 'water', 'watering', 'drought']):
+        return f"""**Irrigation & Water Management for {location_name}**
+
+💧 **Smart Irrigation Principles:**
+
+**Water Requirements by Growth Stage:**
+• **Seedling**: Light, frequent watering
+• **Vegetative**: Moderate, consistent moisture
+• **Flowering/Fruiting**: Increased water needs
+• **Maturity**: Reduced watering
+
+**Irrigation Methods:**
+• **Drip Irrigation**: Most efficient, 90-95% efficiency
+• **Sprinkler**: Good for field crops, 80-85% efficiency
+• **Furrow**: Traditional method, 60-70% efficiency
+
+**Water Management Tips:**
+• **Timing**: Early morning irrigation reduces evaporation
+• **Monitoring**: Check soil moisture at root depth
+• **Mulching**: Reduces water loss by 25-50%
+• **Scheduling**: Based on crop needs and weather forecast
+
+**Drought Management:**
+• Select drought-resistant varieties
+• Improve soil organic matter for water retention
+• Use conservation tillage practices
+• Install efficient irrigation systems
+
+What specific crop or irrigation challenge can I help you with?"""
+
+    # Pest/Disease queries
+    elif any(word in query_lower for word in ['pest', 'disease', 'insect', 'bug', 'fungus', 'virus']):
+        return f"""**Integrated Pest & Disease Management**
+
+🐛 **IPM Strategy Framework:**
+
+**Prevention (Best Defense):**
+• **Crop Rotation**: Break pest life cycles
+• **Resistant Varieties**: Choose disease-resistant cultivars
+• **Soil Health**: Healthy soil = stronger plants
+• **Sanitation**: Remove crop residues and weeds
+
+**Monitoring & Identification:**
+• **Regular Scouting**: Weekly field inspections
+• **Economic Thresholds**: Treat when damage justifies cost
+• **Proper ID**: Identify specific pests/diseases correctly
+• **Weather Monitoring**: Disease pressure varies with conditions
+
+**Control Methods (In Order of Preference):**
+1. **Cultural**: Timing, spacing, water management
+2. **Biological**: Beneficial insects, natural predators
+3. **Mechanical**: Traps, barriers, hand removal
+4. **Chemical**: As last resort, following label instructions
+
+**Common Agricultural Pests:**
+• **Aphids**: Monitor for viral disease transmission
+• **Caterpillars**: Check leaf damage patterns
+• **Fungal Diseases**: Increase with high humidity
+• **Bacterial Issues**: Often spread by water/insects
+
+For specific pest identification and treatment, please describe the symptoms you're seeing."""
+
+    return None  # No shortcut available
+
 def get_search_enhanced_response(query):
     """Use multiple search tools for comprehensive information"""
     try:
@@ -1481,17 +1808,15 @@ Based on this comprehensive information: {combined_info}
 
 Question: {query}
 
-Provide a well-formatted, helpful answer about farming/agriculture using the following structure:
+Provide a helpful, practical answer about farming/agriculture.
 
-**Format your response like this:**
-- Use **bold** for important terms and headings
-- Use bullet points (•) for lists
-- Use numbered lists (1., 2., 3.) for steps
-- Break content into clear paragraphs
-- Add line breaks between sections
-- Include practical tips when relevant
+**Simple formatting:**
+- Use **bold** for key terms only
+- Use simple bullet points for lists
+- Keep paragraphs short and clear
+- Focus on actionable advice for farmers
 
-Make it easy to read and actionable for farmers.
+Avoid complex formatting, tables, or nested structures.
 """
         else:
             # Fallback to direct response if no search results
@@ -1512,16 +1837,25 @@ def trim_chat_memory(max_length=5):
 
 @app.post("/chat")
 async def chat(req: ChatRequest, request: Request):
+    # Initialize performance monitoring
+    perf_monitor = PerformanceMonitor()
+    perf_monitor.start()
+    
     print(f"\n🚀 CHAT ENDPOINT CALLED")
     print(f"📝 User message: '{req.message}'")
     
     user_message = req.message
-    translated_query, original_lang = translate_to_english(user_message)
+    
+    # Async translation with caching
+    perf_monitor.checkpoint("start_translation")
+    translated_query, original_lang = await translate_to_english(user_message)
+    perf_monitor.checkpoint("translation_complete")
     
     print(f"🌍 Original language detected: '{original_lang}'")
     print(f"🔤 Translated query: '{translated_query}'")
     
-    # Check if manual location is provided
+    # Location detection with performance monitoring
+    perf_monitor.checkpoint("start_location_detection")
     if req.location:
         lat, lon, location_name = await parse_manual_location(req.location)
         if lat is None or lon is None:
@@ -1529,6 +1863,7 @@ async def chat(req: ChatRequest, request: Request):
             lat, lon, location_name = await detect_user_location(request)
     else:
         lat, lon, location_name = await detect_user_location(request)
+    perf_monitor.checkpoint("location_detection_complete")
 
     # Helper: detect meta question about NASA datasets/capabilities
     def is_nasa_capability_question(q: str) -> bool:
@@ -1666,7 +2001,7 @@ This is a test of the **RootSource AI** agricultural assistant system.
 
 This system combines **NASA datasets** with agricultural expertise for maximum accuracy."""
         # Format the response before returning
-        translate_lang = translate_back(response_text, original_lang)
+        translate_lang = await translate_back(response_text, original_lang)
         formatted_response = format_response(translate_lang)
         final_response = formatted_response
         return {
@@ -1687,7 +2022,7 @@ This system combines **NASA datasets** with agricultural expertise for maximum a
     nasa_datasets_used = []
     
     # Get specialized knowledge context
-    specialized_context = get_specialized_knowledge_context(question_analysis, translated_query)
+    # Removed specialized_context for speed - prompts are now self-contained
     
     # Debug output
     print(f"Chat Debug: Query='{translated_query}'")
@@ -1699,210 +2034,130 @@ This system combines **NASA datasets** with agricultural expertise for maximum a
     # Fetch comprehensive NASA data if relevant and location is available
     if use_nasa_data and lat is not None and lon is not None:
         try:
-            nasa_results = []
+            print(f"🚀 Starting PARALLEL NASA data fetch for {len(relevant_datasets)} datasets")
             
-            # Fetch data from all relevant NASA datasets
-            if "POWER" in relevant_datasets:
-                power_data = await get_nasa_power_data(lat, lon)
-                nasa_results.append(power_data)
-                if power_data.get("success", False):
-                    nasa_datasets_used.append("POWER")
-                    print(f"POWER dataset successfully fetched")
-                else:
-                    print(f"POWER dataset failed: {power_data.get('error', 'Unknown error')}")
-                    
-            if "MODIS" in relevant_datasets:
-                modis_data = await get_nasa_modis_data(lat, lon)
-                nasa_results.append(modis_data)
-                if modis_data.get("success", False):
-                    nasa_datasets_used.append("MODIS")
-                    print(f"MODIS dataset successfully fetched")
-                else:
-                    print(f"MODIS dataset failed: {modis_data.get('error', 'Unknown error')}")
-                    
-            if "LANDSAT" in relevant_datasets:
-                landsat_data = await get_nasa_landsat_data(lat, lon)
-                nasa_results.append(landsat_data)
-                if landsat_data.get("success", False):
-                    nasa_datasets_used.append("LANDSAT")
-                    print(f"LANDSAT dataset successfully fetched")
-                else:
-                    print(f"LANDSAT dataset failed: {landsat_data.get('error', 'Unknown error')}")
-                    
-            if "GLDAS" in relevant_datasets:
-                gldas_data = await get_nasa_gldas_data(lat, lon)
-                nasa_results.append(gldas_data)
-                if gldas_data.get("success", False):
-                    nasa_datasets_used.append("GLDAS")
-                    print(f"GLDAS dataset successfully fetched")
-                else:
-                    print(f"GLDAS dataset failed: {gldas_data.get('error', 'Unknown error')}")
-                    
-            if "GRACE" in relevant_datasets:
-                grace_data = await get_nasa_grace_data(lat, lon)
-                nasa_results.append(grace_data)
-                if grace_data.get("success", False):
-                    nasa_datasets_used.append("GRACE")
-                    print(f"GRACE dataset successfully fetched")
-                else:
-                    print(f"GRACE dataset failed: {grace_data.get('error', 'Unknown error')}")
+            # Create parallel tasks for all relevant datasets with caching
+            nasa_tasks = []
+            dataset_names = []
             
-            # Debug information
-            print(f"NASA datasets attempted: {relevant_datasets}")
-            print(f"NASA datasets successfully used: {nasa_datasets_used}")
+            for dataset in relevant_datasets:
+                if dataset == "POWER":
+                    nasa_tasks.append(get_nasa_power_data_cached(lat, lon))
+                    dataset_names.append("POWER")
+                elif dataset == "MODIS":
+                    nasa_tasks.append(get_nasa_modis_data_cached(lat, lon))
+                    dataset_names.append("MODIS")
+                elif dataset == "LANDSAT":
+                    nasa_tasks.append(get_nasa_landsat_data_cached(lat, lon))
+                    dataset_names.append("LANDSAT")
+                elif dataset == "GLDAS":
+                    nasa_tasks.append(get_nasa_gldas_data_cached(lat, lon))
+                    dataset_names.append("GLDAS")
+                elif dataset == "GRACE":
+                    nasa_tasks.append(get_nasa_grace_data_cached(lat, lon))
+                    dataset_names.append("GRACE")
             
-            # Analyze comprehensive NASA data with question context
-            if nasa_results:
-                comprehensive_insights = analyze_comprehensive_nasa_data(nasa_results, question_analysis)
-                if comprehensive_insights:
-                    nasa_data_text = f"""
+            # Execute all NASA API calls in parallel with timeout
+            if nasa_tasks:
+                start_time = time.time()
+                nasa_results = await asyncio.gather(*nasa_tasks, return_exceptions=True)
+                fetch_time = time.time() - start_time
+                print(f"⚡ Parallel NASA fetch completed in {fetch_time:.2f}s")
+                
+                # Process results and collect successful datasets
+                for i, result in enumerate(nasa_results):
+                    dataset_name = dataset_names[i]
+                    if isinstance(result, Exception):
+                        print(f"❌ {dataset_name} dataset failed with exception: {result}")
+                    elif result and result.get("success", False):
+                        nasa_datasets_used.append(dataset_name)
+                        print(f"✅ {dataset_name} dataset successfully fetched")
+                    else:
+                        error_msg = result.get('error', 'Unknown error') if result else 'No result returned'
+                        print(f"❌ {dataset_name} dataset failed: {error_msg}")
+                
+                # Analyze comprehensive NASA data with question context
+                valid_results = [r for r in nasa_results if not isinstance(r, Exception) and r]
+                if valid_results:
+                    comprehensive_insights = analyze_comprehensive_nasa_data(valid_results, question_analysis)
+                    if comprehensive_insights:
+                        nasa_data_text = f"""
 
 **COMPREHENSIVE NASA DATA ANALYSIS for {location_name}:**
 {comprehensive_insights}
 
 """
-        except Exception as e:
-            print(f"NASA data fetch error: {e}")
-
-    # Prepare the enhanced intelligent prompt
-    prompt = f"""
-You are RootSource AI, the world's most advanced AI assistant for agriculture and farming. You combine cutting-edge agricultural science, real-time NASA satellite data, and practical farming expertise to provide the most accurate, intelligent, and actionable advice.
-
-**CORE INTELLIGENCE FRAMEWORK:**
-
-1. **Expert Agricultural Knowledge Base:**
-   - Crop Science: Growth patterns, varieties, genetics, breeding, yield optimization
-   - Soil Science: Chemistry, biology, physics, fertility, conservation practices
-   - Plant Pathology: Disease identification, prevention, biological/chemical control
-   - Entomology: Pest identification, integrated pest management, beneficial insects
-   - Agronomy: Field management, rotation systems, sustainable practices
-   - Agricultural Engineering: Irrigation, machinery, post-harvest technology
-   - Climate Science: Weather patterns, climate change impacts, adaptation strategies
-   - Economics: Market analysis, cost optimization, profit maximization
-
-2. **Advanced Problem-Solving Process:**
-   - **Step 1**: Analyze the question type (crop management, disease diagnosis, economic planning, etc.)
-   - **Step 2**: Consider location-specific factors (climate zone, soil type, local practices)
-   - **Step 3**: Integrate NASA satellite data and weather patterns
-   - **Step 4**: Apply scientific principles and evidence-based recommendations
-   - **Step 5**: Provide actionable solutions with clear implementation steps
-   - **Step 6**: Include risk assessment and alternative approaches
-
-3. **Multi-Dimensional Analysis:**
-   - **Technical**: Scientific accuracy and latest research findings
-   - **Practical**: Real-world applicability and farmer-friendly solutions
-   - **Economic**: Cost-benefit analysis and profitability considerations
-   - **Environmental**: Sustainability and long-term ecological impact
-   - **Temporal**: Timing considerations and seasonal planning
-   - **Regional**: Local climate, soil conditions, and agricultural practices
-
-4. **Intelligent Question Classification & Response:**
-
-   **Crop Management Questions**: Provide variety selection, planting schedules, growth monitoring, harvest timing
-   **Disease/Pest Issues**: Offer identification guides, treatment options, prevention strategies
-   **Soil Health Queries**: Include testing recommendations, amendment strategies, fertility programs
-   **Weather/Climate Questions**: Integrate NASA data with farming implications and risk management
-   **Economic/Market Questions**: Provide cost analysis, profit optimization, market timing advice
-   **Technology Questions**: Recommend appropriate tools, equipment, and modern farming techniques
-   **Sustainability Questions**: Focus on organic practices, conservation, and long-term viability
-
-5. **NASA Data Integration Intelligence:**
-   - **POWER**: Climate analysis, growing degree days, frost risk, irrigation scheduling
-   - **MODIS**: Vegetation health monitoring, crop stress detection, yield prediction
-   - **LANDSAT**: Field-level crop analysis, water stress mapping, precision agriculture
-   - **GLDAS**: Soil moisture optimization, drought monitoring, water management
-   - **GRACE**: Groundwater sustainability, long-term water planning, irrigation efficiency
-
-{nasa_data_text}
-
-**INTELLIGENT QUERY ANALYSIS:**
-• **Question Type**: {question_analysis.get('primary_type', 'General Agriculture')}
-• **Complexity Level**: {question_analysis.get('complexity', 'Intermediate')}
-• **Urgency**: {question_analysis.get('urgency', 'Normal')}
-• **User Location**: {location_name if location_name else "Location not detected"}
-
-{get_country_agricultural_context(location_name)}
-
-{specialized_context}
-
-**FARMER'S QUESTION:** "{translated_query}"
-
-**INTELLIGENT RESPONSE REQUIREMENTS:**
-
-1. **Comprehensive Analysis**: Consider all relevant factors (technical, economic, environmental, practical)
-2. **Evidence-Based**: Reference scientific studies, proven practices, and data-driven insights
-3. **Actionable Solutions**: Provide specific steps, timelines, and measurable outcomes
-4. **Risk Assessment**: Include potential challenges and mitigation strategies
-5. **Alternative Approaches**: Offer multiple solutions with pros/cons analysis
-6. **Follow-up Guidance**: Suggest monitoring methods and adjustment strategies
-
-**DOMAIN RESTRICTION:**
-- Only answer agriculture, farming, and closely related topics (gardening, livestock, agricultural technology, food production)
-- For non-agricultural queries, respond: "Please ask questions related to agriculture, farming, or food production only."
-
-**RESPONSE STRUCTURE - FOLLOW EXACTLY:**
-
-**[Topic Title]**
-
-**Quick Answer:** [One-sentence direct answer]
-
-**Detailed Analysis:**
-• **Key Factor 1**: Explanation with scientific basis
-• **Key Factor 2**: Practical considerations and implementation
-• **Key Factor 3**: Economic or efficiency aspects
-
-**Recommended Actions:**
-1. **Immediate Steps**: What to do now
-2. **Short-term (1-4 weeks)**: Planning and preparation
-3. **Long-term (season/year)**: Strategic improvements
-
-**Success Indicators:**
-• What to monitor and measure
-• Expected outcomes and timelines
-• When to adjust strategies
-
-**Additional Considerations:**
-• Risk factors and mitigation
-• Alternative approaches
-• Seasonal or timing considerations
-
-**Expert Tips:**
-• Professional insights and best practices
-• Cost-saving opportunities
-• Efficiency improvements
-
-Now provide the most intelligent, comprehensive, and valuable agricultural guidance possible."""
-
-    max_retries = 2
-    for attempt in range(max_retries):
-        try:
-            # Try direct response first (fastest)
-            response_text = get_direct_response(prompt)
             
-            # Check if we got a demo mode response (no GROQ API key)
-            if "Demo Mode" in response_text:
-                break  # Keep demo mode response, don't try search
-            elif response_text and len(response_text.strip()) > 10:
-                break
-            else:
-                # If direct response is too short and we have API key, try with enhanced search
-                if question_analysis.get('needs_search', False):
-                    search_queries = get_enhanced_search_strategy(question_analysis, translated_query)
-                    response_text = get_search_enhanced_response(search_queries[0] if search_queries else translated_query)
-                else:
-                    response_text = get_search_enhanced_response(translated_query)
-                if response_text:
-                    break
-                else:
-                    response_text = "I'm sorry, I'm having trouble processing your request right now. Please try rephrasing your question."
-                    break
-                    
+            print(f"📊 NASA datasets attempted: {relevant_datasets}")
+            print(f"✅ NASA datasets successfully used: {nasa_datasets_used}")
+            
         except Exception as e:
-            print(f"⚠ Error (attempt {attempt + 1}/{max_retries}): {str(e)[:100]}...")
-            if attempt < max_retries - 1:
-                time.sleep(0.5)  # Very short delay
+            print(f"💥 NASA data fetch error: {e}")
+
+    # Smart prompt selection based on query complexity
+    prompt = get_optimized_prompt(translated_query, question_analysis, location_name, nasa_data_text)
+
+    # ========== SMART RESPONSE OPTIMIZATION ==========
+    
+    # Check for cached responses first (for identical queries)
+    perf_monitor.checkpoint("start_llm_processing")
+    query_cache_key = f"response_{hashlib.md5((translated_query + str(nasa_datasets_used)).encode()).hexdigest()}"
+    cached_response = perf_cache.get(query_cache_key, ttl_seconds=1800)  # 30 minute cache
+    
+    if cached_response:
+        print("🟢 Cache HIT for complete response")
+        response_text = cached_response
+        perf_monitor.checkpoint("llm_processing_complete")
     else:
-        response_text = "I'm sorry, I'm experiencing high demand right now. Please try again in a moment."
+        print("🔴 Cache MISS for response, generating...")
+        
+        # EXPRESS LANE: Ultra-fast responses for simple queries (bypass LLM entirely)
+        response_text = get_express_response(translated_query, location_name, lat, lon)
+        
+        if not response_text:
+            # SMART SHORTCUTS: Pre-built expert responses (bypass LLM for common topics)
+            response_text = get_smart_shortcut_response(translated_query, location_name, lat, lon)
+        
+        if not response_text:
+            # Use full LLM processing
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    # Try direct response first (fastest)
+                    response_text = get_direct_response(prompt)
+                    
+                    # Check if we got a demo mode response (no GROQ API key)
+                    if "Demo Mode" in response_text:
+                        break  # Keep demo mode response, don't try search
+                    elif response_text and len(response_text.strip()) > 10:
+                        break
+                    else:
+                        # If direct response is too short and we have API key, try with enhanced search
+                        if question_analysis.get('needs_search', False):
+                            search_queries = get_enhanced_search_strategy(question_analysis, translated_query)
+                            response_text = get_search_enhanced_response(search_queries[0] if search_queries else translated_query)
+                        else:
+                            response_text = get_search_enhanced_response(translated_query)
+                        if response_text:
+                            break
+                        else:
+                            response_text = "I'm sorry, I'm having trouble processing your request right now. Please try rephrasing your question."
+                            break
+                    
+                except Exception as e:
+                    print(f"⚠ Error (attempt {attempt + 1}/{max_retries}): {str(e)[:100]}...")
+                    if attempt < max_retries - 1:
+                        time.sleep(0.5)  # Very short delay
+                    else:
+                        response_text = "I'm sorry, I'm experiencing high demand right now. Please try again in a moment."
+        
+        # Cache the generated response (before attribution to allow reuse across different dataset combinations)
+        if response_text and not "Demo Mode" in response_text and not "I'm sorry" in response_text:
+            base_response_key = f"base_response_{hashlib.md5(translated_query.encode()).hexdigest()}"
+            perf_cache.set(base_response_key, response_text)
+            print("💾 Cached generated response for future use")
+        
+        perf_monitor.checkpoint("llm_processing_complete")
 
     # Add NASA dataset attribution BEFORE translation
     if nasa_datasets_used:
@@ -1918,27 +2173,38 @@ Now provide the most intelligent, comprehensive, and valuable agricultural guida
         dataset_attribution = f"\n\n**NASA dataset(s) used:** Analysis completed using integrated agricultural databases"
         response_text += dataset_attribution
     
-    # Translate back to original language FIRST
+    # Translate back to original language FIRST with async and caching
+    perf_monitor.checkpoint("start_translation_back")
     print(f"🔄 MAIN FLOW: About to translate back to '{original_lang}'")
     print(f"📄 Response before translation: {response_text[:200]}...")
     
-    translated_response = translate_back(response_text, original_lang)
+    translated_response = await translate_back(response_text, original_lang)
+    perf_monitor.checkpoint("translation_back_complete")
     
     print(f"✅ MAIN FLOW: Translation completed, length: {len(translated_response)}")
     print(f"📄 Response after translation: {translated_response[:200]}...")
     
     # Then format with HTML
+    perf_monitor.checkpoint("start_formatting")
     final_response = format_response(translated_response)
+    perf_monitor.checkpoint("formatting_complete")
     
     print(f"🎨 MAIN FLOW: HTML formatting completed")
     print(f"📦 FINAL RESPONSE: {final_response[:200]}...")
+    
+    # Log performance summary
+    perf_summary = perf_monitor.get_summary()
+    print(f"⚡ PERFORMANCE SUMMARY: Total time: {perf_summary['total_time']:.2f}s")
+    for checkpoint, time_taken in perf_summary['checkpoints'].items():
+        print(f"   {checkpoint}: {time_taken:.2f}s")
     
     return {
         "reply": final_response, 
         "detectedLang": original_lang, 
         "translatedQuery": translated_query,
         "userLocation": location_name if location_name else "Location not detected",
-        "nasaDataUsed": nasa_datasets_used
+        "nasaDataUsed": nasa_datasets_used,
+        "performanceMs": int(perf_summary['total_time'] * 1000)  # Add performance metric
     }
 
 

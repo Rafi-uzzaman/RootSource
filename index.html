@@ -57,17 +57,20 @@
                 <img src="assets/logo.png" alt="RootSource AI Logo">
             </div>
             <p class="about-description">
-                RootSource AI is a sophisticated, multilingual agricultural assistant designed to provide farmers, researchers, and enthusiasts with expert-level advice and real-time information. By integrating a powerful AI engine with a multi-source research system and a seamless voice interface, RootSource AI delivers accurate, context-aware answers to all your farming questions.
+                RootSource AI is your expert agricultural companion, combining cutting-edge artificial intelligence with real-time NASA satellite data to provide the most accurate, location-specific farming guidance. Whether you're a small-scale farmer or agricultural researcher, RootSource AI delivers intelligent, actionable advice in over 40 languages with seamless voice interaction.
             </p>
             <div class="about-features">
-                <h3>Key Features</h3>
+                <h3>🌟 Advanced Capabilities</h3>
                 <ul>
-                    <li><span class="feature-icon">🤖</span> Advanced AI Engine</li>
-                    <li><span class="feature-icon">🔍</span> Multi-Source Research</li>
-                    <li><span class="feature-icon">🌐</span> Global Language Support</li>
-                    <li><span class="feature-icon">🎙️</span> Hands-Free Voice Interface</li>
+                    <li><span class="feature-icon">🛰️</span> NASA Satellite Data Integration (POWER, MODIS, LANDSAT, GLDAS, GRACE)</li>
+                    <li><span class="feature-icon">🎙️</span> Complete Voice Experience - Speak & Listen</li>
+                    <li><span class="feature-icon">🌍</span> 40+ Languages with Auto-Detection</li>
+                    <li><span class="feature-icon">📍</span> Location-Aware Recommendations</li>
+                    <li><span class="feature-icon">🧠</span> Expert Agricultural Knowledge Base</li>
+                    <li><span class="feature-icon">🔬</span> Real-Time Research Integration</li>
                 </ul>
             </div>
+            
             <div class="about-footer">
                 <p>Developed with ❤️ by Team BlueDot</p>
             </div>
@@ -280,9 +283,16 @@ $(document).ready(function () {
             // Add slight delay to ensure message is rendered and notification sound plays
             setTimeout(() => {
                 const alwaysSpeak = localStorage.getItem('alwaysSpeak') === 'true';
-                console.log('Attempting to speak AI response. isVoiceConversation:', isVoiceConversation, 'alwaysSpeak:', alwaysSpeak);
+                console.log('🔊 Attempting to speak AI response:', { 
+                    isVoiceConversation, 
+                    alwaysSpeak, 
+                    textLength: reply?.length,
+                    detectedLang 
+                });
+                
+                // Call voice response with enhanced parameters
                 speakAIResponse(reply, detectedLang, alwaysSpeak);
-            }, 500);
+            }, 300); // Reduced delay for faster response
         }
     }
 
@@ -387,6 +397,10 @@ $(document).ready(function () {
             // Send message directly to backend for processing
             let messageToSend = promptText;
             
+            // Preserve voice conversation state during long requests
+            const wasVoiceConversation = isVoiceConversation;
+            console.log('📤 Sending request, voice conversation state:', wasVoiceConversation);
+            
             const response = await fetch(`${API_BASE}/chat`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -396,6 +410,12 @@ $(document).ready(function () {
                 })
             });
             const data = await response.json();
+            
+            // Restore voice conversation state if it was active
+            if (wasVoiceConversation) {
+                isVoiceConversation = true;
+                console.log('🔄 Restored voice conversation state');
+            }
             
             appendBotMessage(data.reply,data.detectedLang,data.translatedQuery);
         } catch (err) {
