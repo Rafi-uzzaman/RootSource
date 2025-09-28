@@ -112,20 +112,51 @@ function speakAIResponse(text, detectedLang, alwaysSpeak = false) {
     let voice = null;
     let actualLang = targetLang;
     
-    // Special handling for Bengali voices
+    // Enhanced Bengali voice handling for all devices
     if (targetLang === 'bn-BD' || targetLang.startsWith('bn')) {
-        // Try multiple Bengali voice patterns
-        voice = voices.find(v => v.lang === 'bn-BD') ||
-                voices.find(v => v.lang === 'bn-IN') ||
-                voices.find(v => v.lang.startsWith('bn')) ||
-                voices.find(v => v.name.toLowerCase().includes('bengali')) ||
-                voices.find(v => v.name.toLowerCase().includes('bangla'));
+        console.log('🔍 Searching for Bengali voices...');
         
-        if (voice) {
-            console.log('✅ Found Bengali voice:', voice.name, voice.lang);
-            actualLang = voice.lang;
-        } else {
-            console.warn('⚠️ Bengali voice not found, checking other options...');
+        // Comprehensive Bengali voice search patterns
+        const bengaliVoicePatterns = [
+            // Exact language matches (priority order)
+            v => v.lang === 'bn-BD',
+            v => v.lang === 'bn-IN', 
+            v => v.lang === 'bn',
+            // Language family matches
+            v => v.lang.startsWith('bn-'),
+            v => v.lang.startsWith('bn'),
+            // Name-based matches (case insensitive)
+            v => v.name.toLowerCase().includes('bengali'),
+            v => v.name.toLowerCase().includes('bangla'),
+            v => v.name.toLowerCase().includes('bangladesh'),
+            // Additional patterns for different platforms
+            v => v.name.toLowerCase().includes('bn-bd'),
+            v => v.name.toLowerCase().includes('bn_bd'),
+            v => v.name.toLowerCase().includes('বাংলা'),
+            // Google and Microsoft specific patterns
+            v => v.name.toLowerCase().includes('google') && v.lang.startsWith('bn'),
+            v => v.name.toLowerCase().includes('microsoft') && v.lang.startsWith('bn')
+        ];
+        
+        // Try each pattern until we find a voice
+        for (const pattern of bengaliVoicePatterns) {
+            voice = voices.find(pattern);
+            if (voice) {
+                console.log('✅ Found Bengali voice with pattern:', voice.name, voice.lang);
+                actualLang = voice.lang;
+                break;
+            }
+        }
+        
+        // If still no Bengali voice found, log available voices for debugging
+        if (!voice) {
+            console.warn('⚠️ No Bengali voice found. Available voices:');
+            voices.forEach(v => {
+                if (v.lang.toLowerCase().includes('bn') || v.name.toLowerCase().includes('bengal') || v.name.toLowerCase().includes('bangla')) {
+                    console.log('   Possible Bengali voice:', v.name, v.lang);
+                }
+            });
+            console.warn('   Total voices available:', voices.length);
         }
     }
     
@@ -229,14 +260,47 @@ function speakAIResponse(text, detectedLang, alwaysSpeak = false) {
     };
 
     utterance.onerror = (event) => {
-        console.error('❌ Speech error:', event.error, 'Target language:', targetLang);
+        console.error('❌ Speech error:', event.error, 'Target language:', targetLang, 'Voice:', voice?.name);
         
-        // Enhanced error handling with language-specific messages
-        if (event.error === 'language-not-supported') {
-            console.warn('⚠️ Language not supported:', targetLang, 'trying English fallback');
-            // Could attempt fallback here if needed
-        } else if (event.error === 'voice-unavailable') {
-            console.warn('⚠️ Voice unavailable for language:', targetLang);
+        // Enhanced error handling with Bengali-specific fallback
+        if (event.error === 'language-not-supported' || event.error === 'voice-unavailable') {
+            if (targetLang.startsWith('bn')) {
+                console.warn('⚠️ Bengali voice failed, attempting fallback strategies...');
+                
+                // Try alternative Bengali voices
+                const allVoices = synth.getVoices();
+                const fallbackVoice = allVoices.find(v => 
+                    v.lang.startsWith('bn') && v !== voice
+                ) || allVoices.find(v => 
+                    v.name.toLowerCase().includes('bengali') || v.name.toLowerCase().includes('bangla')
+                ) || allVoices.find(v => v.lang.startsWith('en')); // English as last resort
+                
+                if (fallbackVoice && fallbackVoice !== voice) {
+                    console.log('🔄 Retrying with fallback voice:', fallbackVoice.name, fallbackVoice.lang);
+                    synth.cancel();
+                    const fallbackUtterance = new SpeechSynthesisUtterance(cleanText);
+                    fallbackUtterance.voice = fallbackVoice;
+                    fallbackUtterance.lang = fallbackVoice.lang;
+                    fallbackUtterance.rate = 0.8;
+                    fallbackUtterance.pitch = 1.0;
+                    fallbackUtterance.volume = 1.0;
+                    
+                    fallbackUtterance.onend = () => {
+                        console.log('✅ Fallback speech completed');
+                        cleanupVoice();
+                    };
+                    
+                    fallbackUtterance.onerror = () => {
+                        console.error('❌ Fallback speech also failed');
+                        cleanupVoice();
+                    };
+                    
+                    synth.speak(fallbackUtterance);
+                    return; // Don't cleanup yet, let fallback try
+                }
+            } else {
+                console.warn('⚠️ Language not supported:', targetLang, 'trying English fallback');
+            }
         } else if (event.error === 'network') {
             console.warn('⚠️ Network error during speech synthesis');
         } else if (event.error === 'synthesis-failed') {
@@ -301,11 +365,29 @@ $(document).ready(function() {
         // Build a map: language code -> best voice for that language
         function scoreVoice(v) {
             const name = (v.name || '').toLowerCase();
+            const lang = (v.lang || '').toLowerCase();
             let score = 0;
+            
+            // Base provider scores
             if (name.includes('google')) score += 5;
             if (name.includes('microsoft')) score += 4;
             if (name.includes('natural') || name.includes('enhanced')) score += 2;
             if (PREFERRED_VOICE_ALIASES.map(n => n.toLowerCase()).includes(name)) score += 10;
+            
+            // Enhanced Bengali voice scoring
+            if (lang.startsWith('bn') || name.includes('bengali') || name.includes('bangla')) {
+                score += 15; // High priority for Bengali voices
+                
+                // Prefer Bangladesh variant over India
+                if (lang === 'bn-bd' || name.includes('bangladesh')) score += 8;
+                if (lang === 'bn-in') score += 6;
+                
+                // Prefer specific Bengali patterns
+                if (name.includes('বাংলা')) score += 5; // Native script
+                if (name.includes('google') && lang.startsWith('bn')) score += 3;
+                if (name.includes('microsoft') && lang.startsWith('bn')) score += 2;
+            }
+            
             return score;
         }
 
@@ -318,12 +400,33 @@ $(document).ready(function() {
             }
         });
 
-        // Ensure Bengali (Bangladesh) is included: map best bn* voice to bn-BD if bn-BD not present
-        const bnVoices = voices.filter(v => (v.lang || '').toLowerCase().startsWith('bn'));
-        if (!byLang['bn-BD'] && bnVoices.length) {
+        // Enhanced Bengali voice detection and mapping
+        const bnVoices = voices.filter(v => {
+            const lang = (v.lang || '').toLowerCase();
+            const name = (v.name || '').toLowerCase();
+            return lang.startsWith('bn') || 
+                   name.includes('bengali') || 
+                   name.includes('bangla') || 
+                   name.includes('bangladesh') ||
+                   name.includes('বাংলা');
+        });
+        
+        console.log('🔍 Found Bengali voices:', bnVoices.map(v => `${v.name} (${v.lang})`));
+        
+        // Map the best Bengali voice to bn-BD if not already present
+        if (!byLang['bn-BD'] && bnVoices.length > 0) {
             const bestBn = bnVoices.reduce((a, b) => (scoreVoice(a) >= scoreVoice(b) ? a : b));
             byLang['bn-BD'] = bestBn;
+            console.log('✅ Mapped best Bengali voice to bn-BD:', bestBn.name, bestBn.lang);
         }
+        
+        // Also ensure other Bengali variants are properly mapped
+        bnVoices.forEach(v => {
+            const lang = v.lang || 'bn-BD';
+            if (!byLang[lang] || scoreVoice(v) > scoreVoice(byLang[lang])) {
+                byLang[lang] = v;
+            }
+        });
 
         // Sort languages: bn-BD first, then en-US, then others alphabetically
         const langs = Object.keys(byLang).sort((a,b) => {
@@ -379,7 +482,40 @@ $(document).ready(function() {
     populateLanguages();
 
     if (typeof synth.onvoiceschanged !== 'undefined') {
-        synth.onvoiceschanged = populateLanguages;
+        synth.onvoiceschanged = () => {
+            populateLanguages();
+            validateBengaliVoices();
+        };
+    }
+    
+    // Validate Bengali voices on initial load
+    validateBengaliVoices();
+    
+    // Function to validate and report Bengali voice availability
+    function validateBengaliVoices() {
+        const voices = synth.getVoices();
+        const bengaliVoices = voices.filter(v => {
+            const lang = (v.lang || '').toLowerCase();
+            const name = (v.name || '').toLowerCase();
+            return lang.startsWith('bn') || 
+                   name.includes('bengali') || 
+                   name.includes('bangla') || 
+                   name.includes('bangladesh');
+        });
+        
+        console.log('🔍 Bengali Voice Validation Report:');
+        console.log(`   Total voices available: ${voices.length}`);
+        console.log(`   Bengali voices found: ${bengaliVoices.length}`);
+        
+        if (bengaliVoices.length > 0) {
+            console.log('✅ Available Bengali voices:');
+            bengaliVoices.forEach((v, i) => {
+                console.log(`   ${i + 1}. ${v.name} (${v.lang}) - Local: ${v.localService}`);
+            });
+        } else {
+            console.warn('⚠️ No Bengali voices detected on this device');
+            console.log('💡 Recommendation: Install Bengali language pack for better TTS support');
+        }
     }
 
     // Save user selection changes
