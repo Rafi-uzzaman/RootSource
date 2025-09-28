@@ -11,6 +11,26 @@ const PREFERRED_VOICE_ALIASES = [
 const VOICE_STORAGE_KEY = 'preferredVoiceName';
 const LANG_STORAGE_KEY = 'preferredLangCode';
 
+let silenceInterval = null;
+
+function startSilence() {
+    stopSilence(); // Clear any existing interval
+    silenceInterval = setInterval(() => {
+        if (!window.speechSynthesis.speaking) {
+            const utterance = new SpeechSynthesisUtterance(" ");
+            utterance.volume = 0;
+            window.speechSynthesis.speak(utterance);
+        }
+    }, 10000); // every 10 seconds
+}
+
+function stopSilence() {
+    if (silenceInterval) {
+        clearInterval(silenceInterval);
+        silenceInterval = null;
+    }
+}
+
 function stopSpeech() {
     const speechEngine = window.speechSynthesis;
     if (speechEngine.speaking) {
@@ -318,6 +338,7 @@ function speakAIResponse(text, detectedLang, alwaysSpeak = false) {
     function cleanupVoice() {
         $('#voiceIndicator').removeClass('active speaking').hide();
         $('#voice_search').removeClass('voice-active speaking');
+        stopSilence(); // Stop the keep-alive
         console.log('🧹 Voice UI cleaned up');
     }
 }
@@ -548,6 +569,7 @@ $(document).ready(function() {
         
         // Mark this as a voice-initiated conversation with extended timeout for long responses
         isVoiceConversation = true;
+        startSilence(); // Start keep-alive for mobile browsers
         console.log('🎤 Voice conversation initiated');
         
         // Set a generous timeout for voice conversation (5 minutes) to handle long backend processing
@@ -827,6 +849,7 @@ $(document).ready(function() {
         speech.recognition.stop();
         stopSpeech();
         isVoiceConversation = false; // Reset voice conversation flag
+        stopSilence(); // Ensure keep-alive is stopped
     });
 
 });
