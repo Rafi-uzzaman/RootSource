@@ -108,33 +108,53 @@ function speakAIResponse(text, detectedLang, alwaysSpeak = false) {
     
     console.log('🌍 Target language for speech:', targetLang);
     
-    // Enhanced voice selection with better language matching
+    // Enhanced voice selection with better language matching and Bengali support
     let voice = null;
     let actualLang = targetLang;
     
-    // Try exact language match first (e.g., 'bn-BD')
-    voice = voices.find(v => v.lang === targetLang);
-    if (voice) {
-        console.log('✅ Found exact language match:', voice.name, voice.lang);
-    } else {
-        // Try language family match (e.g., 'bn' from 'bn-BD')
-        const langCode = targetLang.split('-')[0];
-        voice = voices.find(v => v.lang.startsWith(langCode));
+    // Special handling for Bengali voices
+    if (targetLang === 'bn-BD' || targetLang.startsWith('bn')) {
+        // Try multiple Bengali voice patterns
+        voice = voices.find(v => v.lang === 'bn-BD') ||
+                voices.find(v => v.lang === 'bn-IN') ||
+                voices.find(v => v.lang.startsWith('bn')) ||
+                voices.find(v => v.name.toLowerCase().includes('bengali')) ||
+                voices.find(v => v.name.toLowerCase().includes('bangla'));
+        
         if (voice) {
-            console.log('✅ Found language family match:', voice.name, voice.lang);
+            console.log('✅ Found Bengali voice:', voice.name, voice.lang);
             actualLang = voice.lang;
         } else {
-            // Fallback to English if target language not available
-            voice = voices.find(v => v.lang.startsWith('en'));
+            console.warn('⚠️ Bengali voice not found, checking other options...');
+        }
+    }
+    
+    // General voice selection if Bengali not found or other languages
+    if (!voice) {
+        // Try exact language match first (e.g., 'hi-IN')
+        voice = voices.find(v => v.lang === targetLang);
+        if (voice) {
+            console.log('✅ Found exact language match:', voice.name, voice.lang);
+        } else {
+            // Try language family match (e.g., 'hi' from 'hi-IN')
+            const langCode = targetLang.split('-')[0];
+            voice = voices.find(v => v.lang.startsWith(langCode));
             if (voice) {
-                console.log('⚠️ Language not found, using English fallback:', voice.name, voice.lang);
+                console.log('✅ Found language family match:', voice.name, voice.lang);
                 actualLang = voice.lang;
             } else {
-                // Ultimate fallback - first available voice
-                voice = voices[0];
+                // Fallback to English if target language not available
+                voice = voices.find(v => v.lang.startsWith('en'));
                 if (voice) {
-                    console.log('⚠️ Using first available voice:', voice.name, voice.lang);
+                    console.log('⚠️ Language not found, using English fallback:', voice.name, voice.lang);
                     actualLang = voice.lang;
+                } else {
+                    // Ultimate fallback - first available voice
+                    voice = voices[0];
+                    if (voice) {
+                        console.log('⚠️ Using first available voice:', voice.name, voice.lang);
+                        actualLang = voice.lang;
+                    }
                 }
             }
         }
@@ -145,12 +165,34 @@ function speakAIResponse(text, detectedLang, alwaysSpeak = false) {
         return;
     }
 
-    // Create utterance with proper language settings
+    // Create utterance with optimized settings for different languages
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = actualLang; // Use the actual voice language
+    utterance.lang = actualLang;
     utterance.voice = voice;
-    utterance.rate = 0.9;
-    utterance.volume = 1.0;
+    
+    // Language-specific optimizations
+    if (actualLang.startsWith('bn')) {
+        // Bengali voice optimization
+        utterance.rate = 0.8; // Slower for better Bengali pronunciation
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        console.log('🎯 Bengali voice optimization applied');
+    } else if (actualLang.startsWith('hi')) {
+        // Hindi voice optimization
+        utterance.rate = 0.85;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+    } else if (actualLang.startsWith('en')) {
+        // English voice optimization
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+    } else {
+        // Default settings for other languages
+        utterance.rate = 0.85;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+    }
     
     console.log('🎙️ Speech setup:', {
         text: cleanText.substring(0, 50) + '...',
@@ -382,84 +424,225 @@ $(document).ready(function() {
         }, 300000); // 5 minutes timeout
         
         if (r == 0) {
-            // new Audio('assets/audio/end.mp3').play();
+            // Play end audio if available
+            try {
+                new Audio('assets/audio/end.mp3').play().catch(e => console.log('End audio play failed:', e));
+            } catch (e) {
+                console.log('End audio not available:', e);
+            }
+            
             setTimeout(function() {
-                speech.recognition.stop();
+                if (speech && speech.recognition) {
+                    speech.recognition.stop();
+                    speech.listening = false;
+                }
                 speechText();
-                $('#sendBtn').click();
-            }, 4000); // Increased to 8 seconds for mobile compatibility
+                
+                // Process the voice input
+                let text = $('#recoredText').text().trim();
+                if (text && text.length > 1 && text !== 'Listening...') {
+                    console.log('🎤 Processing voice input:', text);
+                    $('#prompt').val(text);
+                    $('#recoredText').text('');
+                    $("#prompt").trigger("keyup");
+                    
+                    // Hide microphone UI and send the message
+                    setTimeout(() => {
+                        $('#microphone').removeClass('visible');
+                        $('#sendBtn').click();
+                    }, 100);
+                } else {
+                    console.warn('⚠️ No valid voice input detected');
+                    $('#microphone').removeClass('visible');
+                }
+            }, 2000); // Reduced to 2 seconds for better mobile experience
         }
         r++;
         setTimeout(function() {
             r = 0;
-        }, 4000); // Increased to 8 seconds for mobile compatibility
-
-        let text = $('#recoredText').text().trim();
-        if (text.length > 1) {
-            $('#prompt').val(text);
-            $('#recoredText').val('');
-            $("#prompt").trigger("keyup");
-            $('#microphone').removeClass('visible');
-        }
+        }, 3000); // Reduced to 3 seconds for mobile compatibility
     }
 
     $('#speakBtn').click(function() {
+        // Prevent multiple rapid clicks (debouncing for mobile)
+        if ($(this).hasClass('processing')) {
+            return;
+        }
+        
+        $(this).addClass('processing');
+        setTimeout(() => $(this).removeClass('processing'), 1000);
+
         if ($('#speakBtn').hasClass('active')) {
             // Stop listening when user clicks again
+            console.log('🛑 Stopping voice recognition');
             $('#speakBtn').removeClass('active');
             if (speech && speech.recognition) {
                 speech.recognition.stop();
+                speech.listening = false;
             }
+            $('#mic-status').removeClass('active').text('Microphone is off');
         } else {
             // Start listening
+            console.log('🎤 Starting voice recognition');
             $('#speakBtn').addClass('active');
-            new Audio('assets/audio/start.mp3').play();
+            
+            // Play audio feedback if available
+            try {
+                new Audio('assets/audio/start.mp3').play().catch(e => console.log('Audio play failed:', e));
+            } catch (e) {
+                console.log('Audio not available:', e);
+            }
+            
+            // Reset speech state
+            if (speech) {
+                speech.finalTranscript = '';
+                speech.interimTranscript = '';
+                speech.text = '';
+            }
+            
             setTimeout(function() {
-                // Recognition language = selected language (prioritize stored), default bn-BD then en-US
-                let language = ($('#microphone select option:selected').data('lang') || '').toString();
-                if (!language) language = (localStorage.getItem(LANG_STORAGE_KEY) || '');
-                if (!language) language = 'bn-BD';
-                if (!language) language = 'en-US';
-                speak(language);
-                if (speech && speech.recognition) {
-                    speech.recognition.start();
+                try {
+                    // Recognition language = selected language (prioritize stored), default bn-BD then en-US
+                    let language = ($('#microphone select option:selected').data('lang') || '').toString();
+                    if (!language) language = (localStorage.getItem(LANG_STORAGE_KEY) || '');
+                    if (!language) language = 'bn-BD';
+                    if (!language) language = 'en-US';
+                    
+                    console.log('🌍 Voice recognition language:', language);
+                    
+                    speak(language);
+                    if (speech && speech.recognition) {
+                        speech.recognition.start();
+                    }
+                } catch (error) {
+                    console.error('🎤 Error starting voice recognition:', error);
+                    $('#speakBtn').removeClass('active');
+                    showCustomAlert('Voice recognition failed to start. Please try again.');
                 }
-            }, 300);
+            }, 300); // Slight delay to allow UI update
 
-            $('#mic-status').removeClass('active').text('Microphone is off');
+            $('#mic-status').addClass('active').text('Microphone is on - Speak now');
         }
     });
 
     function speak(language) {
         window.SpeechRecognition = window.SpeechRecognition ||
             window.webkitSpeechRecognition ||
-            window.mozSpeechRecognition;
+            window.mozSpeechRecognization;
 
+        if (!window.SpeechRecognition) {
+            console.error('🎤 Speech recognition not supported in this browser');
+            showCustomAlert('Voice input is not supported in this browser. Please use a supported browser like Chrome.');
+            return;
+        }
 
         speech = {
             enabled: true,
             listening: false,
             recognition: new SpeechRecognition(),
-            text: ""
+            text: "",
+            finalTranscript: "",
+            interimTranscript: ""
         };
-        speech.recognition.continuous = true;
+        
+        // Enhanced settings for mobile Chrome compatibility
+        speech.recognition.continuous = false; // Changed to false for better mobile experience
         speech.recognition.interimResults = true;
         speech.recognition.lang = language;
+        speech.recognition.maxAlternatives = 1;
+        
+        // Mobile Chrome optimization
+        if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+            speech.recognition.continuous = false; // Disable continuous for mobile
+            console.log('📱 Mobile device detected - optimizing voice recognition');
+        }
 
+        // Enhanced result handling with better final result detection
         speech.recognition.addEventListener("result", (event) => {
-            const audio = event.results[event.results.length - 1];
-            speech.text = audio[0].transcript;
-            const tag = document.activeElement.nodeName;
-            if (tag === "INPUT" || tag === "TEXTAREA") {
-                if (audio.isFinal) {
-                    document.activeElement.value += speech.text;
+            let interimTranscript = '';
+            let finalTranscript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
                 }
             }
-            $('#recoredText').text(speech.text);
 
-            if (audio.isFinal) {
-                checkhSpeach();
+            // Update display with interim results
+            const displayText = finalTranscript + interimTranscript;
+            $('#recoredText').text(displayText);
+            
+            // Store the current state
+            speech.finalTranscript = finalTranscript;
+            speech.interimTranscript = interimTranscript;
+            speech.text = displayText;
+
+            // Process final results
+            if (finalTranscript) {
+                console.log('🎤 Final transcript received:', finalTranscript);
+                setTimeout(() => {
+                    checkhSpeach();
+                }, 500); // Small delay to ensure processing
             }
+        });
+
+        // Enhanced error handling for mobile Chrome
+        speech.recognition.addEventListener("error", (event) => {
+            console.error('🎤 Speech recognition error:', event.error);
+            
+            switch(event.error) {
+                case 'no-speech':
+                    console.warn('⚠️ No speech detected. Please try again.');
+                    break;
+                case 'audio-capture':
+                    showCustomAlert('Microphone access denied. Please allow microphone access and try again.');
+                    break;
+                case 'not-allowed':
+                    showCustomAlert('Microphone access not allowed. Please enable microphone permissions.');
+                    break;
+                case 'network':
+                    showCustomAlert('Network error. Please check your internet connection.');
+                    break;
+                case 'service-not-allowed':
+                    showCustomAlert('Speech recognition service not available. Please try again later.');
+                    break;
+                default:
+                    console.warn('⚠️ Speech recognition error:', event.error);
+            }
+            
+            // Reset UI on error
+            $('#voice_search').removeClass('voice-active');
+            $('#recoredText').text('');
+        });
+
+        // Handle recognition end
+        speech.recognition.addEventListener("end", () => {
+            console.log('🎤 Speech recognition ended');
+            $('#voice_search').removeClass('voice-active');
+            
+            // For mobile, auto-restart if we're still listening and no final result
+            if (speech.listening && !speech.finalTranscript && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+                console.log('📱 Auto-restarting recognition for mobile');
+                setTimeout(() => {
+                    if (speech.listening) {
+                        try {
+                            speech.recognition.start();
+                        } catch (e) {
+                            console.error('Failed to restart recognition:', e);
+                        }
+                    }
+                }, 100);
+            }
+        });
+
+        // Handle recognition start
+        speech.recognition.addEventListener("start", () => {
+            console.log('🎤 Speech recognition started');
+            $('#voice_search').addClass('voice-active');
+            speech.listening = true;
         });
     }
 
@@ -523,8 +706,40 @@ function hideCustomAlert() {
 
 function showAboutModal() {
     $('#aboutModal').addClass('visible');
+    
+    // Prevent body scrolling when modal is open (mobile fix)
+    $('body').addClass('modal-open');
+    
+    // Add escape key handler
+    $(document).on('keydown.aboutModal', function(e) {
+        if (e.key === 'Escape' || e.keyCode === 27) {
+            hideAboutModal();
+        }
+    });
+    
+    // Add click outside to close (mobile-friendly)
+    $('#aboutModal').on('click.aboutModal', function(e) {
+        if (e.target === this) {
+            hideAboutModal();
+        }
+    });
+    
+    // Focus management for accessibility
+    setTimeout(() => {
+        $('#aboutModalClose').focus();
+    }, 100);
 }
 
 function hideAboutModal() {
     $('#aboutModal').removeClass('visible');
+    
+    // Re-enable body scrolling
+    $('body').removeClass('modal-open');
+    
+    // Remove event handlers
+    $(document).off('keydown.aboutModal');
+    $('#aboutModal').off('click.aboutModal');
+    
+    // Return focus to the about link
+    $('#aboutLink').focus();
 }

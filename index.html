@@ -49,30 +49,55 @@
     
 </head>
 <body>
-    <!-- About Modal -->
-    <div id="aboutModal" class="custom-alert-modal">
-        <div class="custom-alert-content">
-            <button id="aboutModalClose" class="custom-alert-close">&times;</button>
-            <div class="about-logo">
-                <img src="assets/logo.png" alt="RootSource AI Logo">
+    <!-- About Modal - Mobile Optimized -->
+    <div id="aboutModal" class="custom-alert-modal about-modal" role="dialog" aria-labelledby="aboutModalTitle" aria-describedby="aboutModalDescription" aria-modal="true">
+        <div class="custom-alert-content about-content">
+            <button id="aboutModalClose" class="custom-alert-close mobile-close" aria-label="Close About Modal" tabindex="0">&times;</button>
+            
+            <div class="about-header">
+                <div class="about-logo">
+                    <img src="assets/logo.png" alt="RootSource AI Logo">
+                </div>
             </div>
-            <p class="about-description">
-                RootSource AI is your expert agricultural companion, combining cutting-edge artificial intelligence with real-time NASA satellite data to provide the most accurate, location-specific farming guidance. Whether you're a small-scale farmer or agricultural researcher, RootSource AI delivers intelligent, actionable advice in over 40 languages with seamless voice interaction.
-            </p>
-            <div class="about-features">
-                <h3>🌟 Advanced Capabilities</h3>
-                <ul>
-                    <li><span class="feature-icon">🛰️</span> NASA Satellite Data Integration (POWER, MODIS, LANDSAT, GLDAS, GRACE)</li>
-                    <li><span class="feature-icon">🎙️</span> Complete Voice Experience - Speak & Listen</li>
-                    <li><span class="feature-icon">🌍</span> 40+ Languages with Auto-Detection</li>
-                    <li><span class="feature-icon">📍</span> Location-Aware Recommendations</li>
-                    <li><span class="feature-icon">🧠</span> Expert Agricultural Knowledge Base</li>
-                    <li><span class="feature-icon">🔬</span> Real-Time Research Integration</li>
-                </ul>
+            
+            <div class="about-body">
+                <p id="aboutModalDescription" class="about-description">
+                    Your expert agricultural companion, combining cutting-edge artificial intelligence with real-time NASA satellite data to provide the most accurate, location-specific farming guidance.
+                </p>
+                
+                <div class="about-features">
+                    <h3>🌟 Advanced Capabilities</h3>
+                    <div class="features-grid">
+                        <div class="feature-item">
+                            <span class="feature-icon">🛰️</span>
+                            <span class="feature-text">NASA Satellite Data Integration</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎙️</span>
+                            <span class="feature-text">Complete Voice Experience</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🌍</span>
+                            <span class="feature-text">40+ Languages Support</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📍</span>
+                            <span class="feature-text">Location-Aware Recommendations</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🧠</span>
+                            <span class="feature-text">Expert Agricultural Knowledge</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🔬</span>
+                            <span class="feature-text">Real-Time Research Integration</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="about-footer">
-                <p>Developed with ❤️ by Team BlueDot</p>
+                <p>Developed with ❤️ by <strong>Team BlueDot</strong></p>
             </div>
         </div>
     </div>
