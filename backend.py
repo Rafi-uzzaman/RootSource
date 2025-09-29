@@ -89,6 +89,72 @@ class PerformanceCache:
 # Initialize global cache
 perf_cache = PerformanceCache()
 
+# =================== WEATHER FORECAST HELPERS ===================
+# Helper functions for forecast functionality
+
+FORECAST_KEYWORDS = [
+    "weather", "forecast", "rain", "temperature tomorrow", "temp tomorrow",
+    "precip", "wind tomorrow", "humidity tomorrow", "next days", "coming days",
+    "7 day", "5 day", "outlook"
+]
+
+def is_forecast_query(query: str) -> bool:
+    """Return True if the user's query appears to request a short-term weather forecast."""
+    if not query:
+        return False
+    ql = query.lower()
+    return any(k in ql for k in FORECAST_KEYWORDS)
+
+async def fetch_open_meteo_forecast(lat: float, lon: float, days: int = 5):
+    """Fetch a basic multi-day forecast from the free Open-Meteo API."""
+    try:
+        import httpx
+        days = max(1, min(days, 7))
+        url = (
+            "https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat:.3f}&longitude={lon:.3f}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&timezone=UTC&forecast_days={days}"
+        )
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(url)
+            if r.status_code == 200:
+                data = r.json()
+                if "daily" in data and data["daily"].get("time"):
+                    return data
+    except Exception as e:
+        print(f"Forecast fetch failed: {e}")
+    return None
+
+def build_forecast_summary(forecast_data: dict) -> str:
+    """Convert Open-Meteo forecast data into concise agronomic bullet points."""
+    try:
+        daily = forecast_data.get("daily", {})
+        times = daily.get("time", [])
+        tmax = daily.get("temperature_2m_max", [])
+        tmin = daily.get("temperature_2m_min", [])
+        rain = daily.get("precipitation_sum", [])
+        wind = daily.get("windspeed_10m_max", [])
+        lines = ["**Short-Term Weather Forecast (Open-Meteo)**"]
+        for i, day in enumerate(times[:5]):
+            try:
+                lines.append(
+                    f"• {day}: Max {tmax[i]:.1f}°C / Min {tmin[i]:.1f}°C | Rain {rain[i]:.1f}mm | Wind {wind[i]:.1f} km/h"
+                )
+            except Exception:
+                continue
+        # Simple agronomic interpretation
+        if rain:
+            total_rain = sum(rain[:5])
+            if total_rain < 5:
+                lines.append("• Irrigation likely needed (low cumulative rainfall)")
+            elif total_rain > 30:
+                lines.append("• Monitor for waterlogging or fungal disease risk (high rainfall)")
+        if tmax:
+            if any(t > 34 for t in tmax[:5]):
+                lines.append("• Heat stress possible – consider mulching / shade strategies for sensitive crops")
+        return "\n".join(lines)
+    except Exception:
+        return "**Short-Term Weather Forecast**: Data processing unavailable."
+
 # Performance monitoring
 class PerformanceMonitor:
     def __init__(self):
@@ -1484,7 +1550,7 @@ def format_response(text):
     return text
 
 
-def get_direct_response(query):
+def get_direct_response(query, original_question=None):
     """Get direct response from LLM without agent complexity"""
     try:
         llm = get_llm()
@@ -1493,12 +1559,25 @@ def get_direct_response(query):
     except Exception as e:
         # Safe fallback for environments without API key or when provider is unavailable
         print(f"Direct LLM error (falling back to demo response): {e}")
+        
+        # Extract the user question from the full query if original_question not provided
+        user_question = original_question
+        if not user_question:
+            # Try to extract the question from the query
+            lines = query.split('\n')
+            for line in lines:
+                if 'Question:' in line:
+                    user_question = line.split('Question:')[-1].strip()
+                    break
+            if not user_question:
+                user_question = query[:100] + "..." if len(query) > 100 else query
+        
         demo = (
             "**RootSource AI (Demo Mode)**\n\n"
             "• The intelligent LLM backend isn't configured.\n"
             "• Set the environment variable **GROQ_API_KEY** to enable live answers.\n\n"
-            "**You asked:**\n"
-            f"• {query[:500]}\n\n"
+            "**You asked about:**\n"
+            f"• {user_question}\n\n"
             "**What to do next:**\n"
             "1. Create a .env file with GROQ_API_KEY=your_key\n"
             "2. Restart the server\n"
@@ -1900,7 +1979,7 @@ async def chat(req: ChatRequest, request: Request):
         lines.append("")
         lines.append("Ask a specific farming question now and I'll automatically select the optimal datasets.")
         response_text = "\n".join(lines)
-        translate_lang = translate_back(response_text, original_lang)
+        translate_lang = await translate_back(response_text, original_lang)
         formatted_response = format_response(translate_lang)
         # No datasets were actually queried here, so no attribution line
         return {
@@ -1942,7 +2021,7 @@ async def chat(req: ChatRequest, request: Request):
         if used_datasets:
             response_text += f"\n\n**NASA dataset(s) used:** {', '.join(used_datasets)}"
         # Translate back to original language FIRST
-        translate_lang = translate_back(response_text, original_lang)
+        translate_lang = await translate_back(response_text, original_lang)
         # Then format with HTML
         formatted_response = format_response(translate_lang)
         return {
@@ -1972,7 +2051,7 @@ Hello! I'm RootSource AI, your expert AI assistant for all things farming and ag
 
 Feel free to ask me anything related to farming!"""
         # Format the response before returning
-        translate_lang = translate_back(response_text, original_lang)
+        translate_lang = await translate_back(response_text, original_lang)
         formatted_response = format_response(translate_lang)
         final_response = formatted_response
         return {
@@ -2124,7 +2203,7 @@ This system combines **NASA datasets** with agricultural expertise for maximum a
             for attempt in range(max_retries):
                 try:
                     # Try direct response first (fastest)
-                    response_text = get_direct_response(prompt)
+                    response_text = get_direct_response(prompt, translated_query)
                     
                     # Check if we got a demo mode response (no GROQ API key)
                     if "Demo Mode" in response_text:
